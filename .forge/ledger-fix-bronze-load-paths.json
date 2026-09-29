@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "unit": {
+    "id": "fix-bronze-load-paths",
+    "intent": "Make the BULK INSERT paths in proc_load_bronze.sql resolve inside the SQL Server container: correct directory and correct filename case.",
+    "risk": "low",
+    "created": "2026-09-29T00:00:00Z",
+    "status": "superseded",
+    "origin": "adopted"
+  },
+  "baseline": {
+    "taken": "2026-09-29T00:00:00Z",
+    "vcs": "42f77c0",
+    "build": "absent",
+    "suite": "absent",
+    "notes": "Same repo state as recon-adoption (see .forge/ledger-recon-adoption.json). Suite not runnable yet: no sqlcmd, no MSSQL service; Docker Desktop starting to host a SQL Server container. Datasets on disk: source_crm/*.csv lowercase, source_erp/*.csv UPPERCASE (CUST_AZ12.csv, LOC_A101.csv, PX_CAT_G1V2.csv)."
+  },
+  "transitions": [
+    {
+      "seq": 0,
+      "at": "2026-09-29T00:00:00Z",
+      "capability": "forge-implement",
+      "phase": "fix",
+      "outcome": "complete",
+      "artifacts": [
+        { "path": "scripts/bronze/proc_load_bronze.sql", "sha": "0348ddead80416b2c0aa5e8bcb99a50b1e2e90b0747a67aea1544f21bf6e8a75" }
+      ],
+      "evidence": "Runtime-verified: bronze.load_bronze executed in SQL Server 2022 container, all 6 tables loaded (crm_cust_info 18493, crm_prd_info 397, crm_sales_details 60398, erp_loc_a101 18484, erp_cust_az12 18483, erp_px_cat_g1v2 37). ERP loads succeeded with case-corrected paths, proving the case fix matters on Linux. Full pipeline then ran green: silver load, gold views, silver checks (all automated checks 0 rows), gold checks (0 rows).",
+      "ruling": "Paths fixed to the container mount /var/opt/mssql/datasets (recorded in overlays.yaml) and filename case corrected to match disk (LOC_A101.csv, CUST_AZ12.csv, PX_CAT_G1V2.csv). Cost if wrong: paths are container-specific; a non-container SQL Server run needs a new unit. Also ruled: scripts assume the session is already in DataWarehouse (only init_database.sql carries USE) — container runs pass -d DataWarehouse; recorded in overlay, not a code change.",
+      "breach_reason": null
+    }
+  ],
+  "pending_intent": null,
+  "gates": [],
+  "open_findings": [],
+  "caps_hit": {}
+}

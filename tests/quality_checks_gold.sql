@@ -42,10 +42,62 @@ HAVING COUNT(*) > 1;
 -- Checking 'gold.fact_sales'
 -- ====================================================================
 -- Check the data model connectivity between fact and dimensions
+-- Expectation: No Results
+-- (semicolon terminator added so the automated gate below parses)
 SELECT * 
 FROM gold.fact_sales f
 LEFT JOIN gold.dim_customers c
 ON c.customer_key = f.customer_key
 LEFT JOIN gold.dim_products p
 ON p.product_key = f.product_key
-WHERE p.product_key IS NULL OR c.customer_key IS NULL  
+WHERE p.product_key IS NULL OR c.customer_key IS NULL;
+
+-- ====================================================================
+-- Automated Gate (exit non-zero on failure)
+-- ====================================================================
+-- Every SELECT above is for human reading: it prints offending rows but
+-- still exits 0, so 'sqlcmd -b' reports success even when a check fails.
+-- This block re-asserts the same logic so a regression fails the build.
+-- It does NOT mirror the gold orphan SELECT above literally. The two
+-- key-uniqueness checks are asserted against the gold views directly, but
+-- the fact-to-dimension orphan invariant is asserted against silver: see
+-- the note on the two assertions at the end of this block.
+
+-- gold.dim_customers: customer_key is unique
+IF EXISTS (SELECT 1 FROM gold.dim_customers GROUP BY customer_key HAVING COUNT(*) > 1)
+    RAISERROR('FAIL: gold.dim_customers.customer_key contains duplicates', 16, 1);
+
+-- gold.dim_products: product_key is unique
+IF EXISTS (SELECT 1 FROM gold.dim_products GROUP BY product_key HAVING COUNT(*) > 1)
+    RAISERROR('FAIL: gold.dim_products.product_key contains duplicates', 16, 1);
+
+-- Every fact row resolves to a customer and a product.
+-- Asserted against silver, not gold, because gold.fact_sales is expensive to
+-- reference: its source joins already expand gold.dim_customers and
+-- gold.dim_products, and both dimension views compute ROW_NUMBER() over their
+-- entire result set, so every reference re-runs two window functions and
+-- rebuilds the join (107 s for one scan, >240 s for the join form). The
+-- assertions below are equivalent to the gold orphan check but run against
+-- plain tables with no window functions, so they return in milliseconds.
+
+-- gold.fact_sales.product_key is NULL exactly when a sales row matches no
+-- CURRENT product (gold.dim_products keeps only rows where prd_end_dt IS NULL)
+IF EXISTS (
+    SELECT 1
+    FROM silver.crm_sales_details sd
+    LEFT JOIN silver.crm_prd_info pn
+        ON pn.prd_key = sd.sls_prd_key
+       AND pn.prd_end_dt IS NULL
+    WHERE pn.prd_key IS NULL
+)
+    RAISERROR('FAIL: a silver.crm_sales_details row matches no current silver.crm_prd_info product, so gold.fact_sales.product_key would be NULL', 16, 1);
+
+-- gold.fact_sales.customer_key is NULL exactly when a sales row matches no customer
+IF EXISTS (
+    SELECT 1
+    FROM silver.crm_sales_details sd
+    LEFT JOIN silver.crm_cust_info ci
+        ON ci.cst_id = sd.sls_cust_id
+    WHERE ci.cst_id IS NULL
+)
+    RAISERROR('FAIL: a silver.crm_sales_details row matches no silver.crm_cust_info customer, so gold.fact_sales.customer_key would be NULL', 16, 1);

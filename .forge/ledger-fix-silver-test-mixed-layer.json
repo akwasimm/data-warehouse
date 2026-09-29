@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "unit": {
+    "id": "fix-silver-test-mixed-layer",
+    "intent": "Make tests/quality_checks_silver.sql self-consistent: the 'Invalid Dates' check must validate silver.crm_sales_details, not bronze.",
+    "risk": "low",
+    "created": "2026-09-29T00:00:00Z",
+    "status": "superseded",
+    "origin": "adopted"
+  },
+  "baseline": {
+    "taken": "2026-09-29T00:00:00Z",
+    "vcs": "42f77c0",
+    "build": "absent",
+    "suite": "absent",
+    "notes": "Same repo state as recon-adoption unit (see .forge/ledger-recon-adoption.json). Suite not runnable: no sqlcmd, no MSSQL service. Docker 29.8.0 present (unused so far)."
+  },
+  "transitions": [
+    {
+      "seq": 0,
+      "at": "2026-09-29T00:00:00Z",
+      "capability": "forge-implement",
+      "phase": "fix",
+      "outcome": "complete",
+      "artifacts": [
+        { "path": "tests/quality_checks_silver.sql", "sha": "ec5021462aca4bdda65b33532de8b9d857066c9650dd3121cefd9f571658911b" }
+      ],
+      "evidence": "Verified independently by director: single-file diff (5 insertions, 6 deletions); block now queries silver.crm_sales_details with DATE-valid predicates (IS NULL, quoted date literals); no bronze reference remains in the file; sls_due_dt DATE confirmed in ddl_silver.sql:55.",
+      "ruling": "Fix = rewrite the check for the silver DATE column rather than moving it to a bronze quality file (none exists) or deleting it. Cost if wrong: the raw-format validation of bronze dates is no longer performed anywhere; a bronze quality file would be the place to restore it.",
+      "breach_reason": null
+    }
+  ],
+  "pending_intent": null,
+  "gates": [],
+  "open_findings": [],
+  "caps_hit": {}
+}

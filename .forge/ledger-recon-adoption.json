@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "unit": {
+    "id": "recon-adoption",
+    "intent": "Map the data-warehouse repository and record the baseline before any change work begins.",
+    "risk": "moderate",
+    "created": "2026-09-29T00:00:00Z",
+    "status": "active",
+    "origin": "adopted"
+  },
+  "baseline": {
+    "taken": "2026-09-29T00:00:00Z",
+    "vcs": "42f77c0",
+    "build": "absent",
+    "suite": "absent",
+    "notes": "SQL scripts only, no build system. Suite exists as tests/quality_checks_silver.sql and tests/quality_checks_gold.sql but is not runnable here: no sqlcmd, no MSSQL service. Working tree has untracked LICENSE and FUNDING.yml merged from upstream this session (not yet committed). scripts/init_database.sql drops the entire DataWarehouse database (destructive by design, documented in script header). BULK INSERT paths hard-coded to C:\\sql\\dwh_project\\datasets\\... in proc_load_bronze.sql."
+  },
+  "transitions": [
+    {
+      "seq": 0,
+      "at": "2026-09-29T00:00:00Z",
+      "capability": "forge-recon",
+      "phase": "adoption",
+      "outcome": "complete",
+      "artifacts": [
+        { "path": ".forge/reports/recon-adoption.md", "sha": "71e4a546d3252218964a46ab46733fd705a0d84404671f18b99664b73bb1dc41" }
+      ],
+      "evidence": "Report written. All 8 SQL scripts, README, docs/naming_conventions.md, docs/data_catalog.md read. Environment verified: no sqlcmd, no MSSQL service. Git provenance: 42f77c0, master, untracked LICENSE+FUNDING.yml.",
+      "ruling": null,
+      "breach_reason": null
+    }
+  ],
+  "pending_intent": null,
+  "gates": [
+    {
+      "gate": "adoption-scope",
+      "class": "safety",
+      "decision": "approved",
+      "default_taken": null,
+      "at": "2026-09-29T00:00:00Z",
+      "artifact_sha": "42f77c0",
+      "note": "Human declared whole-repository scope: 'start by reinitializing forge in this folder'. Bound to the repo state at 42f77c0."
+    }
+  ],
+  "open_findings": [
+    { "axis": "recon", "severity": "important", "state": "fixed", "note": "tests/quality_checks_silver.sql queried bronze.crm_sales_details inside a silver-layer test (mixed layer). Fixed in unit fix-silver-test-mixed-layer: now queries silver.crm_sales_details with DATE-valid predicates." },
+    { "axis": "recon", "severity": "important", "state": "fixed", "note": "BULK INSERT paths hard-coded to C:\\sql\\dwh_project\\datasets\\... in proc_load_bronze.sql. Fixed in unit fix-bronze-load-paths: now /var/opt/mssql/datasets/... with filename case corrected to match disk; runtime-verified by successful bronze load in container." },
+    { "axis": "recon", "severity": "important", "state": "fixed", "note": "Quality-check suite not runnable: no sqlcmd, no MSSQL service. Resolved by SQL Server 2022 container (mcr.microsoft.com/mssql/server:2022-latest, name sqlserver-dwh, port 1433, datasets mounted at /var/opt/mssql/datasets). Suite executed and passed: silver checks all automated checks 0 rows, gold checks 0 rows. Container facts in overlays.yaml." },
+    { "axis": "recon", "severity": "important", "state": "open", "note": "Source data: 15 birthdates before 1924 (1916-1923) in silver.erp_cust_az12; check expects >= 1924-01-01. Pre-existing data issue, not a regression." },
+    { "axis": "recon", "severity": "important", "state": "open", "note": "Source data: country values unstandardized in silver.erp_loc_a101: 337 blank, 566 'DE', 1500 'US', 2591 'USA', 3391 'United States'. Pre-existing data issue." },
+    { "axis": "recon", "severity": "minor", "state": "open", "note": "Source data: maintenance column in silver.erp_px_cat_g1v2 carries CRLF contamination ('No\\r' 17 rows, 'Yes\\r' 19 rows, clean 'Yes' 1 row); TRIM() does not strip \\r so the spaces check misses it. Pre-existing BULK INSERT CRLF artifact on last column." },
+    { "axis": "recon", "severity": "minor", "state": "open", "note": "Scripts assume the session is already in DataWarehouse; only init_database.sql carries USE statements. Container runs must pass -d DataWarehouse." },
+    { "axis": "recon", "severity": "minor", "state": "open", "note": "README structure section lists scripts/01_bronze_load.sql, 02_silver_clean.sql, 03_gold_model.sql that do not exist (actual layout: scripts/{bronze,silver,gold}/)." },
+    { "axis": "recon", "severity": "minor", "state": "open", "note": "proc_load_silver.sql CATCH block prints 'ERROR OCCURED DURING LOADING BRONZE LAYER' (copy-paste from bronze proc)." }
+  ],
+  "caps_hit": {}
+}

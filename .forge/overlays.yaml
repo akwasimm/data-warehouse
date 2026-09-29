@@ -1,0 +1,17 @@
+stack: t-sql
+conventions:
+  - id: naming
+    applies_to: [scripts/**]
+    rule: "snake_case, English, no reserved words. Bronze/silver tables: <sourcesystem>_<entity>. Gold: <category>_<entity> (dim_/fact_). Surrogate keys: <table>_key. Technical columns: dwh_*. Load procs: load_<layer>."
+    source: docs/naming_conventions.md
+  - id: layers
+    applies_to: [scripts/**]
+    rule: "One schema per layer (bronze/silver/gold). DDL drop-then-create via IF OBJECT_ID. TRUNCATE-then-insert loads. dwh_create_date DATETIME2 DEFAULT GETDATE() on silver tables. PRINT timing instrumentation in procs."
+    source: scripts/*/ddl_*.sql, scripts/*/proc_load_*.sql
+tests:
+  command: "docker exec sqlserver-dwh /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'DwhDev!2026' -C -d DataWarehouse -b -i /repo/tests/quality_checks_silver.sql"
+  e2e_command: "docker exec sqlserver-dwh /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'DwhDev!2026' -C -d DataWarehouse -b -i /repo/tests/quality_checks_gold.sql"
+  note: "Both check files now ASSERT: every check with an 'Expectation' comment has a matching trailing 'IF EXISTS (...) RAISERROR(..., 16, 1)', so sqlcmd -b exits non-zero on regression and the suite is a real gate, not a human read. Verified both directions: clean = exit 0 (silver 625ms, gold 4262ms); injected CR = silver exit 1; injected orphan fact row = gold exit 1. The human-readable SELECTs are retained for inspection. The gold orphan invariant is asserted against silver tables, not the gold views, because referencing gold.fact_sales re-runs ROW_NUMBER() over both dimension views (107s cold) - the silver formulation is provably equivalent. Requires the sqlserver-dwh container (SQL Server 2022, mcr.microsoft.com/mssql/server:2022-latest, port 1433, SA password DwhDev!2026, datasets mounted at /var/opt/mssql/datasets, repo mounted read-only at /repo). Scripts assume the session is already in DataWarehouse - always pass -d DataWarehouse."
+build:
+  command: null
+  note: "SQL scripts only; no build system, no lint, no typecheck. Pipeline order: init_database.sql -> bronze ddl+proc -> EXEC bronze.load_bronze -> silver ddl+proc -> EXEC silver.load_silver -> gold ddl -> quality checks."
