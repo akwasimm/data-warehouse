@@ -1,48 +1,41 @@
 import GlassCard from './GlassCard';
 import Reveal from './Reveal';
 
-/** Glass card + heading + fixed chart height, so every chart in the page
- *  measures identically and Recharts' ResponsiveContainer has a real box. */
+/** Glass card + heading + fixed chart height, so Recharts' ResponsiveContainer
+ *  has a real box to measure. The card title is the chart title — charts never
+ *  carry their own internal heading. */
 export default function ChartWrapper({
   title,
   subtitle,
   note,
-  height = 300,
+  height = 250,
   accent,
   children,
   aside,
+  delay = 0,
 }) {
   return (
-    <Reveal>
-      <GlassCard className="glass--pad" style={{ padding: '1.4rem' }}>
+    <Reveal delay={delay} style={{ height: '100%' }}>
+      <GlassCard className="glass--pad-lg" style={{ height: '100%' }}>
         {(title || aside) && (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: '1rem',
-              marginBottom: '1.1rem',
-            }}
-          >
-            <div>
+          <div className="cardhead">
+            <div style={{ minWidth: 0 }}>
               {title && (
                 <h3 className="card__title" style={{ color: accent ?? 'var(--text-primary)' }}>
                   {title}
                 </h3>
               )}
-              {subtitle && (
-                <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {subtitle}
-                </p>
-              )}
+              {subtitle && <p className="card__text">{subtitle}</p>}
             </div>
-            {aside}
+            {aside && <div className="card__corner">{aside}</div>}
           </div>
         )}
+        {/* Literal height, no flex: a flex:1 child inside a height:100% card
+            inside an auto-height grid row collapses to 0 and Recharts renders
+            an empty wrapper. */}
         <div style={{ width: '100%', height }}>{children}</div>
         {note && (
-          <p style={{ margin: '0.9rem 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          <p className="micro" style={{ margin: '0.9rem 0 0' }}>
             {note}
           </p>
         )}

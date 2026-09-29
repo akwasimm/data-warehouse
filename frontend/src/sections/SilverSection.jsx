@@ -2,26 +2,23 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { useApi } from '../utils/api';
-import { AXIS, GRID } from '../utils/chartTheme';
+import { ANIM, AXIS, GRID } from '../utils/chartTheme';
 import GlassTooltip from '../components/GlassTooltip';
 import { formatCompact, formatNumber } from '../utils/format';
 import GlassCard from '../components/GlassCard';
-import Reveal from '../components/Reveal';
 import CountUp from '../components/CountUp';
+import Reveal from '../components/Reveal';
 import SectionTitle from '../components/SectionTitle';
 import TableExplorer from '../components/TableExplorer';
 import { AsyncState, EmptyState, SkeletonBlock } from '../components/States';
 
 const ACCENT = 'var(--silver)';
-// Darkened from #CD7F32 / #C0C0C0: the metallic values were unreadable as bar
-// fills on a light frosted surface.
 const BRONZE_COLOR = '#B45309';
 const SILVER_COLOR = '#64748B';
 
@@ -33,46 +30,42 @@ export default function SilverSection() {
     <section className="section" id="silver">
       <div className="section__inner">
         <Reveal>
-          <SectionTitle
-            accent={ACCENT}
-            id="silver-title"
-            chapter="03"
-            kicker="From raw to reliable"
-            lede="This is where the warehouse becomes trustworthy. Silver is deduplicated, typed, and named consistently — and it is the only layer that records when the pipeline last touched a row."
-          >
-            Silver
+          <SectionTitle num={3} id="silver-title" accent={ACCENT} subtitle="Cleaned. Deduped. Typed.">
+            Silver layer
           </SectionTitle>
         </Reveal>
 
-        <div className="stack">
-          <div className="grid grid--4">
-            <Reveal>
-              <SilverStat label="Total rows" accessor={(d) => d.total_rows} loading={stats.loading} error={stats.error} data={stats.data} />
+        <div className="grid grid--silver">
+          <div className="stack">
+            <Reveal delay={0}>
+              <GlassCard className="glass--pad" style={{ flex: 1 }}>
+                <p className="kpi__label">Duplicates removed</p>
+                <AsyncState
+                  loading={stats.loading}
+                  error={stats.error}
+                  data={stats.data}
+                  skeleton={<SkeletonBlock rows={1} height={34} />}
+                >
+                  {(d) => (
+                    <div className="statline__value" style={{ color: d.duplicates_removed > 0 ? 'var(--ok)' : undefined }}>
+                      <CountUp value={d.duplicates_removed} format={formatNumber} />
+                    </div>
+                  )}
+                </AsyncState>
+              </GlassCard>
             </Reveal>
-            <Reveal delay={70}>
-              <SilverStat label="Tables" accessor={(d) => d.total_tables} loading={stats.loading} error={stats.error} data={stats.data} />
-            </Reveal>
-            <Reveal delay={140}>
-              <SilverStat
-                label="Duplicates removed"
-                accessor={(d) => d.duplicates_removed}
-                loading={stats.loading}
-                error={stats.error}
-                data={stats.data}
-                accent={d => (d.duplicates_removed > 0 ? 'var(--ok)' : undefined)}
-              />
-            </Reveal>
-            <Reveal delay={210}>
-              <GlassCard className="glass--pad glass--interactive" style={{ height: '100%' }}>
+
+            <Reveal delay={100}>
+              <GlassCard className="glass--pad" style={{ flex: 1 }}>
                 <p className="kpi__label">Dedupe rate</p>
                 <AsyncState
                   loading={stats.loading}
                   error={stats.error}
                   data={stats.data}
-                  skeleton={<div className="skeleton" style={{ height: 44 }} />}
+                  skeleton={<SkeletonBlock rows={1} height={34} />}
                 >
                   {(d) => (
-                    <div className="kpi__value">
+                    <div className="statline__value">
                       <CountUp
                         value={d.bronze_rows ? d.dedup_rate * 100 : 0}
                         format={(v) => `${v.toFixed(3)}%`}
@@ -81,123 +74,79 @@ export default function SilverSection() {
                     </div>
                   )}
                 </AsyncState>
-                <p className="card__text" style={{ margin: '0.5rem 0 0' }}>
-                  Share of bronze rows dropped as duplicates
-                </p>
+                <p className="card__text">Share of bronze rows dropped.</p>
               </GlassCard>
             </Reveal>
           </div>
 
-          <Reveal delay={90}>
-            <GlassCard className="glass--pad">
-              <h3 className="card__title">Bronze vs silver</h3>
-              <p className="card__subtitle">
-                Every table present in both layers — a difference is a row the cleaning
-                step removed
-              </p>
+          <Reveal delay={200}>
+            <GlassCard className="glass--pad" style={{ height: '100%' }}>
+              <p className="kpi__label">Rows retained</p>
               <AsyncState
-                loading={comparison.loading}
-                error={comparison.error}
-                data={comparison.data}
-                skeleton={<SkeletonBlock rows={1} height={280} />}
+                loading={stats.loading}
+                error={stats.error}
+                data={stats.data}
+                skeleton={<SkeletonBlock rows={1} height={34} />}
               >
-                {(rows) =>
-                  rows.length ? (
-                    <div style={{ width: '100%', height: 280 }}>
-                      <ResponsiveContainer>
-                        <BarChart
-                          data={rows}
-                          layout="vertical"
-                          margin={{ top: 4, right: 24, left: 8, bottom: 4 }}
-                        >
-                          <CartesianGrid {...GRID} horizontal={false} vertical />
-                          <XAxis type="number" {...AXIS} tickFormatter={formatCompact} />
-                          <YAxis type="category" dataKey="table_name" {...AXIS} width={130} />
-                          <Tooltip content={<GlassTooltip formatter={formatCompact} />} />
-                          <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(15,23,42,0.6)' }} />
-                          <Bar dataKey="bronze_rows" name="bronze" fill={BRONZE_COLOR} radius={[0, 4, 4, 0]} />
-                          <Bar dataKey="silver_rows" name="silver" fill={SILVER_COLOR} radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <EmptyState title="Nothing to compare yet" hint="Load both layers to see the cleaning delta." />
-                  )
-                }
+                {(d) => (
+                  <div className="statline__value">
+                    <CountUp value={d.total_rows} format={formatCompact} />
+                  </div>
+                )}
               </AsyncState>
+              <p className="card__text">From {formatNumber(stats.data?.bronze_rows ?? 0)} bronze rows.</p>
+            </GlassCard>
+          </Reveal>
 
-              <div style={{ marginTop: '1.25rem' }}>
+          <Reveal delay={300}>
+            <GlassCard className="glass--pad-lg" style={{ height: '100%' }}>
+              <div className="cardhead">
+                <div>
+                  <h3 className="card__title" style={{ color: ACCENT }}>Bronze vs silver</h3>
+                  <p className="card__text">A gap is a row cleaning removed.</p>
+                </div>
+              </div>
+              <div style={{ width: '100%', height: 400 }}>
                 <AsyncState
                   loading={comparison.loading}
                   error={comparison.error}
                   data={comparison.data}
-                  skeleton={<SkeletonBlock rows={3} height={34} />}
+                  skeleton={<SkeletonBlock rows={1} height={400} />}
                 >
-                  {(rows) => (
-                    <div className="table-wrap">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Table</th>
-                            <th scope="col" className="num">Bronze</th>
-                            <th scope="col" className="num">Silver</th>
-                            <th scope="col" className="num">Removed</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((r) => (
-                            <tr key={r.table_name}>
-                              <td className="mono">{r.table_name}</td>
-                              <td className="num">{formatNumber(r.bronze_rows)}</td>
-                              <td className="num">{formatNumber(r.silver_rows)}</td>
-                              <td
-                                className="num"
-                                style={{ color: r.removed ? 'var(--ok)' : 'var(--text-muted)' }}
-                              >
-                                {r.removed > 0 ? `-${formatNumber(r.removed)}` : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  {(rows) =>
+                    rows.length ? (
+                      <ResponsiveContainer>
+                        <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                          <CartesianGrid {...GRID} horizontal={false} vertical />
+                          <XAxis type="number" {...AXIS} tickFormatter={formatCompact} />
+                          <YAxis type="category" dataKey="table_name" {...AXIS} width={140} />
+                          <Tooltip content={<GlassTooltip formatter={formatCompact} />} cursor={{ fill: 'rgba(15,23,42,0.035)' }} />
+                          <Bar dataKey="bronze_rows" name="bronze" fill={BRONZE_COLOR} radius={[0, 3, 3, 0]} maxBarSize={10} isAnimationActive animationDuration={ANIM} />
+                          <Bar dataKey="silver_rows" name="silver" fill={SILVER_COLOR} radius={[0, 3, 3, 0]} maxBarSize={10} isAnimationActive animationDuration={ANIM} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <EmptyState title="Nothing to compare yet" hint="Load both layers to see the cleaning delta." />
+                    )
+                  }
                 </AsyncState>
               </div>
             </GlassCard>
           </Reveal>
 
-          <Reveal delay={60}>
-            <GlassCard className="glass--pad">
-              <h3 className="card__title">Cleaned tables</h3>
-              <p className="card__subtitle">
-                Browse the rows, or switch to the column types silver settled on
-              </p>
+          <Reveal delay={0} className="grid-span-2" style={{ gridColumn: '1 / span 2' }}>
+            <GlassCard className="glass--pad-lg" style={{ height: '100%' }}>
+              <div className="cardhead">
+                <div>
+                  <h3 className="card__title" style={{ color: ACCENT }}>Cleaned tables</h3>
+                  <p className="card__text">Rows, or the column types silver settled on.</p>
+                </div>
+              </div>
               <TableExplorer layer="silver" accent={ACCENT} withSchema />
             </GlassCard>
           </Reveal>
         </div>
       </div>
     </section>
-  );
-}
-
-function SilverStat({ label, accessor, loading, error, data, accent }) {
-  return (
-    <GlassCard className="glass--pad glass--interactive" style={{ height: '100%' }}>
-      <p className="kpi__label">{label}</p>
-      <AsyncState
-        loading={loading}
-        error={error}
-        data={data}
-        skeleton={<div className="skeleton" style={{ height: 44 }} />}
-      >
-        {(d) => (
-          <div className="kpi__value" style={accent ? { color: accent(d) } : undefined}>
-            <CountUp value={accessor(d)} format={formatNumber} />
-          </div>
-        )}
-      </AsyncState>
-    </GlassCard>
   );
 }

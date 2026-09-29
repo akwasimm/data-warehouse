@@ -36,6 +36,58 @@ def test_health():
     assert body["database"] == "connected"
 
 
+def test_monitor_answers_get_and_head():
+    """UptimeRobot can poll either verb, so both must work and agree. FastAPI
+    does not add HEAD to a GET route by itself -- it was 405 until this was
+    declared explicitly."""
+    get = client.get("/api/health")
+    head = client.request("HEAD", "/api/health")
+    assert get.status_code == head.status_code == 200
+    assert head.content == b""
+    assert get.json()["status"] == "ok"
+
+
+def test_monitor_reports_503_when_the_warehouse_is_down(monkeypatch):
+    """The status code is the contract. While it was hardcoded to 200, every
+    external check passed during an outage: UptimeRobot reported UP, Render
+    skipped the restart, and Docker's HEALTHCHECK went green on a dead DB."""
+
+    def boom(*a, **k):
+        raise RuntimeError(
+            "connection failed: FATAL: password authentication failed for user "
+            '"postgres" at 10.0.0.5 port 5432'
+        )
+
+    monkeypatch.setattr(db, "one", boom)
+
+    r = client.get("/api/health")
+    assert r.status_code == 503
+    assert r.json()["status"] == "degraded"
+    # The frontend reads `detail` out of a failed response, so it must stay.
+    assert "unreachable" in r.json()["detail"]
+    # Driver text names the host, port and user. Unauthenticated, so it is
+    # logged rather than returned.
+    assert "FATAL" not in r.text and "5432" not in r.text and "postgres" not in r.text
+    assert client.request("HEAD", "/api/health").status_code == 503
+
+
+def test_preview_limit_is_rejected_not_crashed():
+    """`min(limit, 200)` let limit=-1 reach Postgres, which rejects `LIMIT -1`
+    as a syntax error -- a 500 on public input."""
+    for bad in ("-1", "0", "201"):
+        r = client.get(f"/api/bronze/preview/crm_cust_info?limit={bad}")
+        assert r.status_code == 422, (bad, r.status_code)
+
+
+def test_missing_password_fails_loudly(monkeypatch):
+    """No committed default: an unset DWH_PASSWORD must refuse rather than
+    quietly fall back to a known credential."""
+    monkeypatch.setattr(db, "PASSWORD", "")
+    r = client.get("/api/health")
+    assert r.status_code == 503
+    assert "DWH_PASSWORD" in r.text or r.json()["status"] == "degraded"
+
+
 @needs_data
 def test_discovery_finds_every_layer():
     assert len(db.list_objects("bronze")) == 6

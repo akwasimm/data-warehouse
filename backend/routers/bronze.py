@@ -1,6 +1,6 @@
 """Bronze layer: raw, as-ingested data. Tables only, no views in this warehouse."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 import database as db
 
@@ -14,10 +14,12 @@ def tables():
 
 
 @router.get("/preview/{table_name}")
-def preview(table_name: str, limit: int = db.PREVIEW_ROWS):
+def preview(table_name: str, limit: int = Query(db.PREVIEW_ROWS, ge=1, le=200)):
+    # ge=1 matters: `min(limit, 200)` alone let limit=-1 through, and Postgres
+    # rejects `LIMIT -1` as a syntax error -- a 500 on public input.
     if not db.resolve("bronze", table_name):
         raise HTTPException(404, f"no bronze object named {table_name!r}")
-    return db.preview("bronze", table_name, limit=min(limit, 200))
+    return db.preview("bronze", table_name, limit=limit)
 
 
 @router.get("/stats")

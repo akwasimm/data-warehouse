@@ -1,6 +1,6 @@
 """Silver layer: cleaned, deduplicated, correctly typed."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 import database as db
 
@@ -14,10 +14,10 @@ def tables():
 
 
 @router.get("/preview/{table_name}")
-def preview(table_name: str, limit: int = db.PREVIEW_ROWS):
+def preview(table_name: str, limit: int = Query(db.PREVIEW_ROWS, ge=1, le=200)):
     if not db.resolve("silver", table_name):
         raise HTTPException(404, f"no silver object named {table_name!r}")
-    return db.preview("silver", table_name, limit=min(limit, 200))
+    return db.preview("silver", table_name, limit=limit)
 
 
 @router.get("/schema/{table_name}")

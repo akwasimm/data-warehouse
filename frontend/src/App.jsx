@@ -5,6 +5,7 @@ import GoldSection from './sections/GoldSection';
 import Hero from './sections/Hero';
 import SilverSection from './sections/SilverSection';
 import ScrollProgress from './components/ScrollProgress';
+import TopBar from './components/TopBar';
 
 export default function App() {
   return (
@@ -19,7 +20,9 @@ export default function App() {
         <div className="orb orb--three" />
       </div>
 
-      <main>
+      <TopBar />
+
+      <main id="top">
         <Hero />
         <ArchitectureOverview />
         <BronzeSection />

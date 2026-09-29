@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApi } from '../utils/api';
 import GlassTable, { previewColumns, previewRows } from './GlassTable';
+import Select from './Select';
 import { SkeletonBlock } from './States';
 
 const PAGE = 10;
@@ -29,26 +30,14 @@ export default function TableExplorer({ layer, accent, withSchema = false }) {
   return (
     <div className="stack">
       <div className="controls">
-        <label className="controls__label" htmlFor={`${layer}-table`}>
-          Table
-        </label>
-        <select
+        <Select
           id={`${layer}-table`}
-          className="select"
+          label="Table"
           value={active ?? ''}
-          onChange={(e) => setSelected(e.target.value)}
+          options={names.length ? names : [{ value: '', label: 'No tables found' }]}
+          onChange={setSelected}
           disabled={!names.length}
-        >
-          {names.length ? (
-            names.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))
-          ) : (
-            <option value="">No tables found</option>
-          )}
-        </select>
+        />
 
         {withSchema && active && (
           <button

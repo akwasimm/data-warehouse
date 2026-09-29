@@ -23,7 +23,13 @@ HOST = os.getenv("DWH_HOST", "localhost")
 PORT = int(os.getenv("DWH_PORT", "5433"))
 DATABASE = os.getenv("DWH_DATABASE", "datawarehouse")
 USER = os.getenv("DWH_USER", "postgres")
-PASSWORD = os.getenv("DWH_PASSWORD", "DwhDev2026")
+# No default on purpose: a committed fallback password turns a forgotten deploy
+# env var into a silent connection on a known credential. Empty means "not
+# configured" and connect() refuses, loudly, rather than guessing.
+PASSWORD = os.environ.get("DWH_PASSWORD", "")
+# Without this a dropped/unroutable host blocks a worker thread indefinitely:
+# the connection was measured not returning after 300s against a dead port.
+TIMEOUT = int(os.getenv("DWH_TIMEOUT", "10"))
 
 LAYERS = ("bronze", "silver", "gold")
 PREVIEW_ROWS = 10
@@ -32,17 +38,24 @@ CACHE_TTL = 300  # seconds; keeps repeated catalog/aggregate hits off the DB
 
 @contextmanager
 def connect():
+    if not PASSWORD:
+        raise RuntimeError(
+            "DWH_PASSWORD is not set. Copy backend/.env.example, or set it in the "
+            "platform's environment. The app ships no default credential."
+        )
     if DIALECT == "mssql":
         import pymssql
 
         conn = pymssql.connect(
-            server=HOST, port=str(PORT), database=DATABASE, user=USER, password=PASSWORD
+            server=HOST, port=str(PORT), database=DATABASE, user=USER,
+            password=PASSWORD, login_timeout=TIMEOUT,
         )
     else:
         import psycopg
 
         conn = psycopg.connect(
-            host=HOST, port=PORT, dbname=DATABASE, user=USER, password=PASSWORD
+            host=HOST, port=PORT, dbname=DATABASE, user=USER, password=PASSWORD,
+            connect_timeout=TIMEOUT,
         )
     try:
         yield conn
@@ -79,17 +92,27 @@ def _jsonable(value):
         return str(value)
 
 
-def query(sql, params=None):
-    """Run a query, return a list of dicts with JSON-safe values."""
-    with connect() as conn:
-        cur = _cursor(conn)
-        cur.execute(sql, params if params is not None else ())
-        rows = cur.fetchall()
-    return [{k: _jsonable(v) for k, v in row.items()} for row in rows]
+def _fetch(conn, sql, params):
+    cur = _cursor(conn)
+    cur.execute(sql, params if params is not None else ())
+    return [{k: _jsonable(v) for k, v in row.items()} for row in cur.fetchall()]
 
 
-def one(sql, params=None):
-    rows = query(sql, params)
+def query(sql, params=None, conn=None):
+    """Run a query, return a list of dicts with JSON-safe values.
+
+    Pass `conn` to reuse a caller's connection. The catalog fan-out would
+    otherwise open one socket per table, which is what exhausted Postgres
+    connections under concurrent cold requests.
+    """
+    if conn is not None:
+        return _fetch(conn, sql, params)
+    with connect() as own:
+        return _fetch(own, sql, params)
+
+
+def one(sql, params=None, conn=None):
+    rows = query(sql, params, conn=conn)
     return rows[0] if rows else None
 
 
@@ -167,23 +190,24 @@ def list_objects(layer, with_counts=True):
 
     def build():
         objects = []
-        for row in query(SQL_LIST_OBJECTS, (layer,)):
-            name = row["object_name"]
-            if with_counts:
-                row["row_count"] = count_rows(layer, name)
-            else:
-                row["row_count"] = None
-            row["source"] = source_system(name)
-            objects.append(row)
+        with connect() as conn:
+            for row in query(SQL_LIST_OBJECTS, (layer,), conn=conn):
+                name = row["object_name"]
+                if with_counts:
+                    row["row_count"] = count_rows(layer, name, conn=conn)
+                else:
+                    row["row_count"] = None
+                row["source"] = source_system(name)
+                objects.append(row)
         return objects
 
     return cached("list_objects", layer, build)
 
 
-def count_rows(layer, name):
+def count_rows(layer, name, conn=None):
     """Exact row count. Postgres has no sys.partitions, so this is one COUNT(*)
     per object, memoised by the layer cache above."""
-    return one(SQL_COUNT.format(ident=ident(layer, name)))["n"] or 0
+    return one(SQL_COUNT.format(ident=ident(layer, name)), conn=conn)["n"] or 0
 
 
 def resolve(layer, name):
@@ -192,9 +216,9 @@ def resolve(layer, name):
     return next((o for o in list_objects(layer) if o["object_name"] == name), None)
 
 
-def columns(layer, name):
+def columns(layer, name, conn=None):
     params = (layer, name) if DIALECT == "mssql" else (f"{layer}.{name}",)
-    return query(SQL_COLUMNS, params)
+    return query(SQL_COLUMNS, params, conn=conn)
 
 
 def preview(layer, name, limit=PREVIEW_ROWS, offset=0):
@@ -214,13 +238,14 @@ def last_pipeline_run():
     carry the column are read.
     """
     stamps = []
-    for obj in list_objects("silver"):
-        name = obj["object_name"]
-        if not any(c["column_name"] == "dwh_create_date" for c in columns("silver", name)):
-            continue
-        row = one(f"SELECT MAX(dwh_create_date) AS m FROM {ident('silver', name)}")
-        if row and row["m"]:
-            stamps.append(row["m"])
+    with connect() as conn:
+        for obj in list_objects("silver"):
+            name = obj["object_name"]
+            if not any(c["column_name"] == "dwh_create_date" for c in columns("silver", name, conn=conn)):
+                continue
+            row = one(f"SELECT MAX(dwh_create_date) AS m FROM {ident('silver', name)}", conn=conn)
+            if row and row["m"]:
+                stamps.append(row["m"])
     return max(stamps) if stamps else None
 
 

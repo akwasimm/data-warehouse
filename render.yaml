@@ -1,0 +1,49 @@
+# Render blueprint for the dashboard API.
+#
+#   1. Create the Postgres database (or point DWH_HOST at the existing one).
+#   2. Render prompts for every `sync: false` var below on first deploy.
+#   3. healthCheckPath is the same endpoint UptimeRobot watches, so the platform
+#      and the external monitor agree on when this service is actually down.
+#
+#   render.yaml lives at the repo root, so `rootDir: backend` is what makes
+#   requirements.txt and main:app resolvable.
+
+services:
+  - type: web
+    name: wasim-dwh-api
+    runtime: python
+    rootDir: backend
+    plan: starter
+    # $PORT is assigned by Render; binding 0.0.0.0 is required, not optional.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    # Returns 200 only when the warehouse answers, 503 when it does not.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DWH_DIALECT
+        value: postgres
+      - key: DWH_DATABASE
+        value: datawarehouse
+      - key: DWH_USER
+        sync: false
+      # The warehouse's own port. This is NOT $PORT -- that is Render's port
+      # for the web service, which is a different thing entirely.
+      - key: DWH_PORT
+        value: "5432"
+      - key: DWH_HOST
+        sync: false
+      - key: DWH_PASSWORD
+        sync: false
+      # Bounds a hung connect; without it a dead host blocks a worker thread
+      # indefinitely. The API returns 200-with-a-lying-body instead of nothing
+      # far more often than it hangs, so this is a backstop.
+      - key: DWH_TIMEOUT
+        value: "10"
+      # Narrow this to the Vercel domain in production. Left as "*" the API is
+      # scrapable from any origin, which is fine for a public read-only
+      # dashboard and a nuisance the moment it is not one.
+      - key: DWH_CORS_ORIGINS
+        sync: false

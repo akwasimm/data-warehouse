@@ -135,14 +135,27 @@ wire into CI as-is.
 
 **Against a hosted database** the same command works unchanged, because the
 loaders use psql's `\copy` — which streams the file from your machine — rather
-than server-side `COPY`, which cannot see your local files:
+than server-side `COPY`, which cannot see your local files. Hand `run_all.sh` the
+connection string Neon gives you:
 
 ```bash
-PGHOST=<your-host> PGPORT=5432 PGUSER=<user> PGPASSWORD=<pw> PGDATABASE=<db> \
+DATABASE_URL='postgresql://user:password@host/dbname?sslmode=require' \
   sh scripts/run_all.sh
 ```
 
-Use the **direct** connection string for this, not the pooled one.
+Equivalently, as discrete variables: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
+`PGDATABASE`. The URI form is preferred because it is what the Neon console hands
+you, including any `sslmode` and `channel_binding` settings. Your pooled
+(`-pooler`) string works too, since the pipeline keeps no session state between
+statements, though the direct endpoint is marginally faster for a bulk load as it
+skips a proxy hop.
+
+> **Heads-up:** this needs outbound TCP on **port 5432**. Corporate VPNs and some
+> firewalls silently drop Postgres traffic even when the port still appears open
+> (`Test-NetConnection` will say `True` and `psql` will still fail with *"server
+> closed the connection unexpectedly"*). Neon's serverless WebSocket driver on
+> port 443 is **not** a fallback for this — it does not implement the
+> `COPY FROM STDIN` subprotocol, so `\copy` cannot work through it.
 
 ### 3. The dashboard
 
@@ -166,13 +179,70 @@ origin — there is no CORS in the Docker setup.
 
 ---
 
+## 🚀 Deploying
+
+The two halves deploy independently: the API to **Render**, the dashboard to
+**Vercel**.
+
+### Backend → Render
+
+`render.yaml` is the blueprint — it sits at the repo root and points `rootDir` at
+`backend/`. Connect the repo, apply the blueprint, and Render prompts for every
+variable marked `sync: false`. It runs `uvicorn` on `$PORT` and uses
+`/api/health` as its own health check, so the platform and the external monitor
+agree on when the service is down.
+
+### Frontend → Vercel
+
+Set the project **Root Directory** to `frontend/`. `frontend/vercel.json` pins the
+build command, output directory, and cache/security headers. There is no rewrite
+rule because the dashboard has no client-side router.
+
+### Environment variables
+
+**Backend — required on Render**
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `DWH_DIALECT` | no | `postgres` | `postgres` or `mssql` |
+| `DWH_HOST` | **yes** | `localhost` | Warehouse hostname |
+| `DWH_PORT` | **yes** | `5433` | The *warehouse's* port — **not** Render's `$PORT` |
+| `DWH_DATABASE` | no | `datawarehouse` | |
+| `DWH_USER` | **yes** | `postgres` | |
+| `DWH_PASSWORD` | **yes** | *(none)* | No default on purpose: the service refuses to start rather than fall back to a committed credential |
+| `DWH_TIMEOUT` | no | `10` | Seconds before a connection attempt is abandoned |
+| `DWH_CORS_ORIGINS` | no | `*` | Comma-separated allowlist; narrow to the Vercel domain in production |
+
+**Frontend — Vercel**
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `VITE_API_BASE` | **yes, in production** | `http://localhost:8000/api` | Inlined into the bundle **at build time**. Unset, the deployed site makes each visitor's browser call its own `localhost` and every card fails. `npm run build` warns when it is unset |
+
+Anything prefixed `VITE_` is shipped to the browser, so it is public by
+definition. Keep the warehouse password on Render only.
+
+### Uptime monitoring
+
+`GET /api/health` and `HEAD /api/health` both work, and both return **503 while
+the warehouse is unreachable** — 200 only when it actually answers. In
+UptimeRobot: add a monitor for `https://<your-api>/api/health`, monitor type
+**HTTP(s)** using a `HEAD` request, 60s interval.
+
+The status code is the contract. It is what UptimeRobot reads, what Render's
+health check reads, and what Docker's `HEALTHCHECK` reads, so a
+200-with-a-degraded-body would have made all three call a broken dashboard
+healthy.
+
+---
+
 ## 🔌 API
 
 All routes are `GET` and read-only.
 
 | Route | Returns |
 |---|---|
-| `/api/health` | Database connectivity and dialect |
+| `/api/health` | Database connectivity and dialect. `GET` and `HEAD`; `503` when the warehouse is unreachable |
 | `/api/overview` | Row counts and metadata for all three layers |
 | `/api/bronze/tables` | Discovered Bronze tables with row counts |
 | `/api/bronze/preview/{table}` | First N rows of a Bronze table |
@@ -199,6 +269,10 @@ identifiers are allowlisted rather than escaped.
 ```bash
 cd backend && python -m pytest test_api.py -q
 ```
+
+Set `DWH_PASSWORD` first (or copy `backend/.env.example` to `backend/.env` and
+export it) — the app ships no default credential, so the suite cannot connect
+without it.
 
 The suite runs against the live database. It skips the empty-warehouse cases when
 no data is loaded, and asserts on arithmetic invariants (Bronze rows minus

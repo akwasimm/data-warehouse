@@ -1,40 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ==========================================================================
-   Wasim's Data Warehouse — glassmorphism design system
-   One source of truth for the surface, text, and layer accents. Components
-   reference these tokens; nothing hardcodes a rgba() for chrome.
+   Wasim's Data Warehouse — design system
+
+   Density is the point here: real dashboards are small-type and tight, and
+   hierarchy comes from size and weight rather than from bigger boxes. The
+   scale is deliberately fine-grained (12 steps below) so a card title can sit
+   0.4rem from a 2rem figure without either one shouting.
    ========================================================================== */
 
 :root {
-  /* Layer accents. These are the *dark* variants, because on a light frosted
-     surface the original metallic values were unreadable: #FFD700 gold on
-     near-white measured 1.6:1 and #C0C0C0 silver measured 1.8:1. */
+  /* Layer accents. The dark variants, because the original metallic values
+     were unreadable on a light frosted surface: #FFD700 gold measured 1.6:1
+     and #C0C0C0 silver 1.8:1. */
   --bronze: #B45309;
   --silver: #64748B;
   --gold: #A16207;
 
-  /* Text. Contrast measured against the mid-gradient (#e8edf6); the previous
-     dark-theme comment about alpha 0.35 no longer applies because these are
-     opaque values. Re-measure before lowering --text-muted: the 11-13px
-     uppercase labels below it need 4.5:1. */
+  /* Opaque, not alpha-based. Measured against the mid-gradient (#e8edf6). */
   --text-primary: #0F172A;   /* ~16.9:1 */
   --text-secondary: #475569; /* ~7.4:1  */
   --text-muted: #64748B;     /* ~4.8:1  */
 
-  /* Real glass on a light backdrop needs three things together: a translucent
-     white fill, a blur that also saturates what shows through, and a specular
-     highlight on the top edge. The saturation is what stops it looking like
-     flat plastic. */
-  --glass-bg: rgba(255, 255, 255, 0.60);
-  --glass-bg-hover: rgba(255, 255, 255, 0.76);
+  /* Real glass needs three things together: a translucent white fill, a blur
+     that also saturates what shows through, and a specular top edge. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-hover: rgba(255, 255, 255, 0.78);
+  /* White-alpha on a light surface is invisible, so the spec's dark-surface
+     dividers translate to ink-alpha. These are the light equivalents of
+     rgba(255,255,255,0.03/0.04/0.06/0.12). */
+  --hairline: rgba(15, 23, 42, 0.07);       /* was 0.04 */
+  --hairline-soft: rgba(15, 23, 42, 0.045); /* was 0.03 */
+  --row-hover: rgba(15, 23, 42, 0.035);     /* was 0.03 */
   --glass-border: rgba(15, 23, 42, 0.08);
-  --glass-border-hover: rgba(15, 23, 42, 0.16);
-  --radius: 20px;
-  --radius-sm: 12px;
-  /* Documented for reference only: the blur must be written literally in each
-     backdrop-filter rule below. Chromium resolves var() inconsistently inside
-     backdrop-filter and silently falls back to `none`, losing the effect. */
+  --glass-border-hover: rgba(15, 23, 42, 0.16); /* was 0.12 */
+  --shimmer-base: rgba(15, 23, 42, 0.04);   /* was 0.03 */
+
+  --radius: 20px;      /* big cards */
+  --radius-sm: 12px;   /* small cards */
   --shadow: 0 8px 32px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.06);
   --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 
@@ -44,7 +47,6 @@
   --chart-4: #DB2777;
   --chart-5: #2563EB;
   --chart-6: #7C3AED;
-  --palette: var(--chart-1), var(--chart-2), var(--chart-3), var(--chart-4), var(--chart-5), var(--chart-6);
 
   --ok: #15803D;
   --bad: #B91C1C;
@@ -52,6 +54,13 @@
   --ease: 0.3s ease;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --container: 1200px;
+
+  /* Organic spacing. Sections breathe; cards inside them do not. */
+  --space-section: 7.5rem;  /* 120px between major sections */
+  --space-card: 1.25rem;    /* 20px between cards in a grid */
+  --pad-big: 2rem;          /* 32px inside big cards */
+  --pad-small: 1.25rem;     /* 20px inside small cards */
+  --pad-kpi: 1rem;          /* 16px inside KPI cards */
 }
 
 *,
@@ -62,7 +71,6 @@
 
 html {
   scroll-behavior: smooth;
-  /* the hero is 100vh and the scroll arrow targets the next section */
   scroll-padding-top: 2rem;
 }
 
@@ -70,7 +78,6 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-weight: 400;
   color: var(--text-primary);
   background: #EEF2F9;
   -webkit-font-smoothing: antialiased;
@@ -128,7 +135,7 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Read-progress bar. The page is a narrative, so it shows how far in you are.
+   Read-progress bar
    -------------------------------------------------------------------------- */
 
 .progress {
@@ -136,9 +143,8 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 2px;
   z-index: 50;
-  background: transparent;
   pointer-events: none;
 }
 
@@ -149,37 +155,6 @@ body {
   transform-origin: 0 50%;
   background: linear-gradient(90deg, var(--bronze), var(--silver), var(--gold));
   will-change: transform;
-}
-
-/* --------------------------------------------------------------------------
-   Chapter eyebrow. Numbers the sections so the page reads as a journey
-   rather than a stack of unrelated panels.
-   -------------------------------------------------------------------------- */
-
-.chapter {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-muted);
-  margin-bottom: 0.9rem;
-}
-
-.chapter__num {
-  display: grid;
-  place-items: center;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  letter-spacing: 0;
-  color: var(--chapter-accent, var(--text-primary));
-  background: color-mix(in srgb, var(--chapter-accent, var(--silver)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--chapter-accent, var(--silver)) 30%, transparent);
 }
 
 /* --------------------------------------------------------------------------
@@ -205,14 +180,13 @@ body {
 .glass--interactive:hover {
   background: var(--glass-bg-hover);
   border-color: var(--glass-border-hover);
-  transform: translateY(-3px);
-  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.14), 0 3px 10px rgba(15, 23, 42, 0.08),
-    var(--edge-light);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.14), var(--edge-light);
 }
 
-.glass--pad {
-  padding: 1.5rem;
-}
+.glass--pad { padding: var(--pad-small); }
+.glass--pad-lg { padding: var(--pad-big); }
+.glass--sm { border-radius: var(--radius-sm); }
 
 /* --------------------------------------------------------------------------
    Layout
@@ -220,7 +194,7 @@ body {
 
 .section {
   position: relative;
-  padding: 5rem 1.5rem;
+  padding: var(--space-section) 1.5rem;
 }
 
 .section__inner {
@@ -232,31 +206,29 @@ body {
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 4rem 1.5rem;
+  padding: 6rem 1.5rem 8rem;
 }
 
 .grid {
   display: grid;
-  gap: 1.5rem;
+  gap: var(--space-card);
 }
 
-.grid--3 {
-  grid-template-columns: repeat(3, 1fr);
-}
+.grid--2 { grid-template-columns: repeat(2, 1fr); }
+.grid--3 { grid-template-columns: repeat(3, 1fr); }
+.grid--4 { grid-template-columns: repeat(4, 1fr); }
 
-.grid--2 {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.grid--4 {
-  grid-template-columns: repeat(4, 1fr);
-}
+/* Each section's asymmetry is a named layout, not a repeat of the same grid.
+   This is the whole point of the page: no two sections share a structure. */
+.grid--bronze { grid-template-columns: 2fr 1fr; }
+.grid--silver { grid-template-columns: 1fr 1fr 1.5fr; }
+.grid--charts { grid-template-columns: 1.6fr 1fr; }
+.grid--strip { grid-template-columns: repeat(3, 1fr); }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-card);
 }
 
 /* Grid and flex children default to min-content width, so one wide table would
@@ -267,180 +239,616 @@ body {
   min-width: 0;
 }
 
-@media (max-width: 1024px) {
-  .grid--3 { grid-template-columns: repeat(2, 1fr); }
-  .grid--4 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 900px) {
+  .section--hero { padding: 5rem 1.5rem 7rem; }
+  .grid--bronze,
+  .grid--silver,
+  .grid--charts,
+  .grid--strip { grid-template-columns: 1fr; }
+  .grid--silver > .grid-span-2 { grid-column: auto; }
 }
 
 @media (max-width: 720px) {
-  .section { padding: 3.5rem 1rem; }
+  .section { padding: 4.5rem 1rem; }
+  :root { --space-section: 4.5rem; }
   .grid--2,
   .grid--3,
   .grid--4 { grid-template-columns: 1fr; }
 }
 
 /* --------------------------------------------------------------------------
-   Typography
+   Section header: number + title + one-line subtitle
    -------------------------------------------------------------------------- */
 
-.hero__title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  line-height: 1.1;
-  margin: 0 0 1rem;
-  letter-spacing: -0.02em;
+.sec__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
 }
 
-.hero__subtitle {
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  margin: 0 0 1.5rem;
-}
-
-.hero__body {
-  max-width: 42rem;
-  margin: 0 auto;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  font-size: 0.95rem;
+.sec__num {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .section__title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
+  line-height: 1.2;
+  margin: 0;
   letter-spacing: -0.01em;
 }
 
-.section__lede {
+.section__sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: var(--text-secondary);
-  margin: 0 0 2.5rem;
-  max-width: 46rem;
-  line-height: 1.6;
 }
 
-.card__title {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 0 0 0.15rem;
+/* --------------------------------------------------------------------------
+   Hero — typography and whitespace only, no cards
+   -------------------------------------------------------------------------- */
+
+.hero {
+  max-width: var(--container);
+  margin-left: 12vw;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 3rem;
+  align-items: center;
 }
 
-.card__subtitle {
+.hero__inner {
+  max-width: 34rem;
+}
+
+.hero__art {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero__art .dwa {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+}
+
+@media (max-width: 1180px) {
+  .hero { margin-left: 6vw; }
+}
+
+@media (max-width: 1024px) {
+  .hero {
+    margin-left: 0;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+  .hero__inner { max-width: 38rem; }
+  .hero__art .dwa { max-width: 320px; }
+}
+
+.hero__title {
+  font-size: 5rem;
+  font-weight: 800;
+  line-height: 0.95;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.hero__subtitle {
+  font-size: 2rem;
+  font-weight: 300;
+  line-height: 1.15;
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+}
+
+.hero__rule {
+  width: 60px;
+  height: 1px;
+  background: var(--glass-border-hover);
+  margin: 1.75rem 0;
+}
+
+.hero__body {
+  max-width: 34rem;
+  margin: 0;
   font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.hero__note {
+  max-width: 30rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .hero__title { font-size: 3.25rem; }
+  .hero__subtitle { font-size: 1.5rem; }
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+.pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Pipeline diagram (architecture)
+   -------------------------------------------------------------------------- */
+
+.pipe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pipe__node {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--edge-light);
+  white-space: nowrap;
+}
+
+/* The three medallion layers carry more weight than the endpoints. */
+.pipe__node--layer {
+  padding: 0.75rem 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--node-color) 34%, transparent);
+  background: color-mix(in srgb, var(--node-color) 7%, var(--glass-bg));
+}
+
+.pipe__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pipe__line {
+  width: 34px;
+  height: 1px;
+  flex-shrink: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--text-muted) 50%,
+    transparent
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: pipeFlow 2.6s linear infinite;
+}
+
+@keyframes pipeFlow {
+  from { background-position: 220% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* --------------------------------------------------------------------------
+   Unequal inline stat strip
+   -------------------------------------------------------------------------- */
+
+.strip {
+  display: grid;
+  grid-template-columns: 0.8fr 1.6fr 0.8fr;
+  gap: var(--space-card);
+}
+
+@media (max-width: 720px) {
+  .strip { grid-template-columns: 1fr; }
+}
+
+.statcard {
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+}
+
+.statcard__value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.statcard__label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Mini layer bars — the one place cross-layer row counts stay visible. */
+.minibars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.minibar {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  margin: 0 0 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.minibar__track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--shimmer-base);
+  overflow: hidden;
+}
+
+.minibar__fill {
+  height: 100%;
+  border-radius: 999px;
+  transform-origin: 0 50%;
+  animation: growBar 0.9s var(--ease-out) both;
+}
+
+@keyframes growBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.minibar__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Typography
+   -------------------------------------------------------------------------- */
+
+.card__title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .card__text {
   color: var(--text-secondary);
-  font-size: 0.875rem;
-  line-height: 1.65;
-  margin: 0 0 1.25rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.micro {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
 .muted { color: var(--text-secondary); }
-.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
-
-/* --------------------------------------------------------------------------
-   Stat tiles
-   -------------------------------------------------------------------------- */
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--glass-border);
-}
-
-.stat__value {
-  font-size: 1.6rem;
-  font-weight: 600;
-  line-height: 1.2;
+.mono,
+.table .num {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-.stat__label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
 /* --------------------------------------------------------------------------
-   KPI cards
+   KPI cards. Two shapes: a compact number+trend strip, and a taller card.
    -------------------------------------------------------------------------- */
 
+.kpi--compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: var(--pad-kpi);
+  min-height: 100px;
+}
+
 .kpi__label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin: 0 0 0.6rem;
+  color: var(--text-muted);
+  margin: 0 0 0.45rem;
 }
 
 .kpi__value {
-  font-size: 2.1rem;
-  font-weight: 600;
-  line-height: 1.1;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.05;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .kpi__trend {
-  margin-top: 0.65rem;
-  font-size: 0.8rem;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .kpi__trend--up { color: var(--ok); }
 .kpi__trend--down { color: var(--bad); }
 
+.kpi__trend--flat { color: var(--text-muted); }
+
+/* Small stacked stat used in narrow side columns. */
+.statline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.statline:first-of-type { border-top: none; padding-top: 0; }
+
+.statline__value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.statline__label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Status dots and inline badges
+   -------------------------------------------------------------------------- */
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--hairline-soft);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.card__corner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  /* a flex item defaults to min-width:auto, which lets the control groups push
+     the card wider than its column instead of wrapping inside it */
+  min-width: 0;
+}
+
+.viewall {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--ease);
+}
+
+.viewall:hover { color: var(--text-primary); }
+
+/* --------------------------------------------------------------------------
+   Card head
+   -------------------------------------------------------------------------- */
+
+.cardhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.cardhead > * { min-width: 0; }
+
 /* --------------------------------------------------------------------------
    Controls
    -------------------------------------------------------------------------- */
 
+/* The menu is a sibling of the trigger, so this wrapper has to be a real box to
+   anchor it — display:contents would leave the menu positioning against the
+   nearest card instead, and it would span the card's full width. */
+.sel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  position: relative;
+}
+
 .select {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 7.5rem;
   background: var(--glass-bg);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font: inherit;
-  font-size: 0.875rem;
-  padding: 0.6rem 2.4rem 0.6rem 0.9rem;
+  font-size: 0.78rem;
+  text-align: left;
+  padding: 0.45rem 0.7rem;
   cursor: pointer;
-  transition: border-color var(--ease), box-shadow var(--ease);
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%230F172A' stroke-opacity='0.55' stroke-width='1.5' d='m1 1 5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.9rem center;
+  box-shadow: var(--edge-light);
+  transition: border-color var(--ease), background var(--ease);
+  position: relative;
 }
 
-.select:hover,
-.select:focus-visible {
-  border-color: var(--glass-border-hover);
+.select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.select option {
-  background: #FFFFFF;
-  color: #0F172A;
+.select__caret {
+  width: 11px;
+  height: 8px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: transform var(--ease);
+}
+
+.select:hover:not(:disabled),
+.select.is-open { border-color: var(--glass-border-hover); background: var(--glass-bg-hover); }
+
+.select.is-open .select__caret { transform: rotate(180deg); stroke: var(--text-primary); }
+
+.select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.select__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 100%;
+  max-width: 16rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border-hover);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+  animation: sel-in 0.16s var(--ease-out);
+}
+
+@keyframes sel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.select__opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.select__opt.is-active { background: rgba(15, 23, 42, 0.055); }
+
+.select__opt[aria-selected='true'] { font-weight: 600; color: var(--chart-1); }
+
+.select__tick {
+  width: 11px;
+  height: 9px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .btn {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font: inherit;
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  padding: 0.4rem 0.8rem;
   cursor: pointer;
   box-shadow: var(--edge-light);
   transition: all var(--ease);
@@ -449,50 +857,49 @@ body {
 .btn:hover:not(:disabled) {
   border-color: var(--glass-border-hover);
   background: var(--glass-bg-hover);
-  transform: translateY(-1px);
 }
 
 .btn:focus-visible,
 .select:focus-visible,
-.reveal:focus-visible {
+.reveal:focus-visible,
+.viewall:focus-visible,
+.brandmark:focus-visible,
+.social:focus-visible,
+.footer__top:focus-visible {
   outline: 2px solid var(--chart-1);
   outline-offset: 2px;
 }
 
-.btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
+  gap: 0.6rem;
 }
 
 .controls__label {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
 /* --------------------------------------------------------------------------
-   Tables
+   Tables — no outer borders, horizontal hairlines only
    -------------------------------------------------------------------------- */
 
 .table-wrap {
   overflow-x: auto;
   max-width: 100%;
-  border-radius: var(--radius-sm);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.825rem;
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
@@ -501,33 +908,38 @@ body {
   font-weight: 500;
   font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--glass-border);
+  padding: 0 0.7rem 0.5rem;
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.75);
+  /* Header reads as background-less, but sticky needs an opaque-enough fill
+     or rows show through it while scrolling. */
+  background: rgba(248, 250, 253, 0.92);
   backdrop-filter: blur(8px);
 }
 
 .table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--hairline);
   color: var(--text-secondary);
 }
 
-.table tbody tr {
-  transition: background var(--ease);
-}
+.table tbody tr { transition: background var(--ease); }
 
-.table tbody tr:hover {
-  background: rgba(15, 23, 42, 0.035);
-}
+/* Row hover is a background change only — no lift, no shadow. */
+.table tbody tr:hover { background: var(--row-hover); }
 
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
+.table tbody tr:last-child td { border-bottom: none; }
+
+.table td:first-child,
+.table th:first-child { padding-left: 0; }
+
+.table td:last-child,
+.table th:last-child { padding-right: 0; }
+
+/* First column carries slightly more weight than the rest. */
+.table td:first-child { font-weight: 500; color: var(--text-primary); }
 
 .table td.num,
 .table th.num {
@@ -535,171 +947,146 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.table--gold th {
-  color: var(--gold);
-}
-
-.table--accent th {
-  color: var(--accent, var(--bronze));
-}
+.table--gold th { color: var(--gold); }
+.table--accent th { color: var(--accent, var(--bronze)); }
 
 .table tr.is-top td {
   color: var(--text-primary);
-  background: rgba(161, 98, 7, 0.07);
+  background: rgba(161, 98, 7, 0.06);
 }
 
 .table tr.is-top td:first-child {
   color: var(--gold);
   font-weight: 600;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  background: rgba(15, 23, 42, 0.05);
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
+  box-shadow: inset 2px 0 0 var(--gold);
 }
 
 /* --------------------------------------------------------------------------
-   Layer flow diagram
+   Donut legend
    -------------------------------------------------------------------------- */
 
-.flow {
+.donut {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 2.5rem;
-}
-
-.flow__node {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.6rem 1.1rem;
-  border-radius: 999px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: var(--edge-light);
-  font-size: 0.85rem;
-  white-space: nowrap;
-  transition: all var(--ease);
-}
-
-.flow__node:hover {
-  border-color: var(--glass-border-hover);
-  transform: translateY(-2px);
-}
-
-.flow__dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.flow__arrow {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* --------------------------------------------------------------------------
-   Hero medallion nodes
-   -------------------------------------------------------------------------- */
-
-.medallion {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 1rem;
-  margin: 2.5rem 0;
-  flex-wrap: wrap;
+  height: 100%;
 }
 
-.medallion__node {
+@media (max-width: 520px) {
+  .donut { flex-direction: column; }
+}
+
+.donut__legend {
   display: flex;
   flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.donut__row {
+  display: grid;
+  grid-template-columns: 7px 1fr auto;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
-.medallion__ring {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #FFFFFF;
-  background: var(--node-color);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--node-color) 35%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  animation: pulse 3.5s var(--ease) infinite;
+.donut__row span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.medallion__link {
-  width: 46px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(15, 23, 42, 0.05),
-    rgba(15, 23, 42, 0.30),
-    rgba(15, 23, 42, 0.05)
-  );
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.07); opacity: 0.88; }
+.donut__row b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
 /* --------------------------------------------------------------------------
-   Scroll indicator
+    Scroll indicator — centred, with a wave above a downward chevron
    -------------------------------------------------------------------------- */
 
-.scroll-arrow {
+.scroll-cue {
   position: absolute;
   bottom: 2.5rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-muted);
+}
+
+.scroll-cue__stack {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.7rem;
+}
+
+.scroll-cue__label {
+  font-size: 0.85rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  padding: 0.5rem;
+  letter-spacing: 0.22em;
+  color: var(--text-secondary);
   transition: color var(--ease);
 }
 
-.scroll-arrow:hover {
-  color: var(--text-primary);
+.scroll-cue:hover .scroll-cue__label { color: var(--text-primary); }
+
+.scroll-cue__wave {
+  width: 72px;
+  height: 18px;
+  overflow: hidden;
 }
 
-.scroll-arrow__chevron {
-  animation: bob 2.2s var(--ease) infinite;
+.scroll-cue__wave path {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  animation: cue-wave 1.5s linear infinite;
 }
 
-@keyframes bob {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50% { transform: translateY(7px); opacity: 1; }
+.scroll-cue__wave path:nth-child(2) { animation-delay: -0.5s; }
+.scroll-cue__wave path:nth-child(3) { animation-delay: -1s; }
+
+/* one wavelength, so each copy lands exactly where the last one started */
+@keyframes cue-wave {
+  from { transform: translateY(0); }
+  to { transform: translateY(15px); }
 }
+
+.scroll-cue__chevron {
+  width: 30px;
+  height: 18px;
+  animation: cue-chevron 2s var(--ease) infinite;
+}
+
+.scroll-cue__chevron polyline {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke var(--ease);
+}
+
+.scroll-cue:hover .scroll-cue__chevron polyline { stroke: var(--text-primary); }
+
+@keyframes cue-chevron {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(5px); opacity: 1; }
+}
+
 
 /* --------------------------------------------------------------------------
    States: loading skeleton, error, empty
@@ -709,9 +1096,9 @@ body {
   border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
-    rgba(15, 23, 42, 0.05) 25%,
-    rgba(15, 23, 42, 0.10) 37%,
-    rgba(15, 23, 42, 0.05) 63%
+    var(--shimmer-base) 25%,
+    rgba(15, 23, 42, 0.085) 37%,
+    var(--shimmer-base) 63%
   );
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
@@ -727,16 +1114,16 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 2.5rem 1.5rem;
+  gap: 0.4rem;
+  padding: 2rem 1.25rem;
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
 
 .state__title {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
@@ -747,19 +1134,197 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Footer
+   Topbar — sticky identity + the three profiles
+   -------------------------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(248, 250, 252, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.topbar__inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0.7rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.brandmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brandmark__text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.brandmark__sub {
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.socials {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.social {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: border-color var(--ease), background var(--ease), color var(--ease);
+}
+
+.social:hover {
+  border-color: var(--glass-border-hover);
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.social__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.social__name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+.social__handle {
+  font-size: 0.65rem;
+  font-family: var(--mono);
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .topbar__inner { padding: 0.6rem 1rem; }
+  .social__handle { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Footer — plain text on the gradient, not a glass card
    -------------------------------------------------------------------------- */
 
 .footer {
-  padding: 2.5rem 1.5rem 3.5rem;
-  text-align: center;
+  border-top: 1px solid var(--hairline);
   color: var(--text-muted);
-  font-size: 0.8rem;
-  line-height: 1.9;
+  font-size: 0.7rem;
 }
 
-.footer__title {
+.footer__inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr auto;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.footer__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.footer__line {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.footer__sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  max-width: 22rem;
+}
+
+.footer__layers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.footer__layer {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-secondary);
+}
+
+.footer__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.footer__colophon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  text-align: right;
+}
+
+.footer__top {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.footer__top:hover { color: var(--text-primary); border-bottom-color: var(--glass-border-hover); }
+
+@media (max-width: 900px) {
+  .footer__inner { grid-template-columns: 1fr; gap: 1.25rem; }
+  .footer__colophon { align-items: flex-start; text-align: left; }
+  .footer__layers { flex-direction: row; flex-wrap: wrap; gap: 0.9rem; }
 }
 
 /* --------------------------------------------------------------------------
@@ -768,8 +1333,8 @@ body {
 
 .reveal {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+  transform: translateY(20px);
+  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
 }
 
 .reveal.is-visible {
@@ -781,14 +1346,8 @@ body {
    Scrollbar
    -------------------------------------------------------------------------- */
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 
 ::-webkit-scrollbar-thumb {
   background: rgba(15, 23, 42, 0.18);
@@ -807,8 +1366,97 @@ body {
   scrollbar-color: rgba(15, 23, 42, 0.18) transparent;
 }
 
-::selection {
-  background: rgba(79, 70, 229, 0.18);
+::selection { background: rgba(79, 70, 229, 0.18); }
+
+/* --------------------------------------------------------------------------
+   Self-assembling warehouse art
+
+   Every stage is a fill-mode:both animation keyed off an inline --d delay, so
+   the timeline lives in the markup and the final frame is the settled drawing.
+   Base styles are deliberately the finished state: killing the animations is
+   all that reduced-motion needs to do.
+   -------------------------------------------------------------------------- */
+
+.dwa {
+  --dwa-paper: rgba(255, 255, 255, 0.92);
+  --dwa-ink-fill: rgba(15, 23, 42, 0.05);
+  --dwa-ink-line: rgba(15, 23, 42, 0.34);
+  --dwa-bronze-fill: rgba(180, 83, 9, 0.13);
+  --dwa-bronze-lid: rgba(180, 83, 9, 0.28);
+  --dwa-bronze-line: rgba(180, 83, 9, 0.62);
+  --dwa-silver-fill: rgba(100, 116, 139, 0.13);
+  --dwa-silver-lid: rgba(100, 116, 139, 0.28);
+  --dwa-silver-line: rgba(100, 116, 139, 0.62);
+  --dwa-gold-fill: rgba(161, 98, 7, 0.13);
+  --dwa-gold-lid: rgba(161, 98, 7, 0.28);
+  --dwa-gold-line: rgba(161, 98, 7, 0.62);
+}
+
+.dwa-file,
+.dwa-cyl-raw,
+.dwa-cyl-final,
+.dwa-layer,
+.dwa-ware,
+.dwa-paper {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.dwa-file {
+  animation: dwa-file 2.6s var(--ease-out) var(--d) both;
+}
+
+@keyframes dwa-file {
+  0% { opacity: 0; transform: translate(-24px, -16px); }
+  20% { opacity: 1; transform: translate(0, 0); }
+  58% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.14); }
+}
+
+.dwa-link { animation: dwa-draw 0.6s ease var(--d) both; }
+
+@keyframes dwa-draw {
+  from { opacity: 0; }
+  to { opacity: 0.5; }
+}
+
+.dwa-cyl-raw { animation: dwa-pop 0.7s var(--ease-out) var(--d) both; }
+.dwa-layer { animation: dwa-pop 0.6s var(--ease-out) var(--d) both; }
+.dwa-cyl-final { animation: dwa-pop 0.8s var(--ease-out) var(--d) both; }
+
+@keyframes dwa-pop {
+  0% { opacity: 0; transform: translateY(12px) scale(0.6); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dwa-ware {
+  /* `forwards` not `both` on the exit: with `both` its backwards fill would
+     override the entrance's opacity-0 delay and flash the warehouse on load. */
+  animation: dwa-ware 0.8s var(--ease-out) var(--d) both, dwa-retire 0.5s ease 6.1s forwards;
+}
+
+@keyframes dwa-ware {
+  0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dwa-retire {
+  from { opacity: 1; }
+  to { opacity: 0; transform: scale(0.94); }
+}
+
+.dwa-paper {
+  animation: dwa-paper 0.8s var(--ease-out) var(--d) both, dwa-float 6s ease-in-out 7.5s infinite;
+}
+
+@keyframes dwa-paper {
+  0% { opacity: 0; transform: translateY(18px) scale(0.88); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dwa-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
 /* --------------------------------------------------------------------------
@@ -826,4 +1474,19 @@ body {
   }
   .reveal { opacity: 1; transform: none; }
   .progress__bar { transform: scaleX(1); }
+  .minibar__fill { transform: scaleX(1); }
+  /* Durations collapse above, so every staged animation is already sitting on
+     its final frame. The delays still have to go, or the art stays blank for
+     as long as the longest delay. */
+  .dwa-file,
+  .dwa-link,
+  .dwa-cyl-raw,
+  .dwa-layer,
+  .dwa-ware,
+  .dwa-cyl-final,
+  .dwa-paper,
+  .scroll-cue__wave path,
+  .scroll-cue__chevron {
+    animation-delay: 0s !important;
+  }
 }
