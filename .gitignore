@@ -23,3 +23,6 @@ Thumbs.db
 *.csv
 *.png
 *.pdf
+
+# Ignore graphify generated knowledge graph
+graphify-out/
