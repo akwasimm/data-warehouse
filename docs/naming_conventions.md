@@ -1,81 +1,143 @@
-# **Naming Conventions**
+# Naming Conventions
 
-This document outlines the naming conventions used for schemas, tables, views, columns, and other objects in the data warehouse.
+The rules this warehouse actually follows. Every claim here was checked against
+the live database — where a previous revision of this document described patterns
+the project does not use, it has been corrected or removed.
 
-## **Table of Contents**
+## Contents
 
-1. [General Principles](#general-principles)
-2. [Table Naming Conventions](#table-naming-conventions)
-   - [Bronze Rules](#bronze-rules)
-   - [Silver Rules](#silver-rules)
-   - [Gold Rules](#gold-rules)
-3. [Column Naming Conventions](#column-naming-conventions)
-   - [Surrogate Keys](#surrogate-keys)
-   - [Technical Columns](#technical-columns)
-4. [Stored Procedure](#stored-procedure-naming-conventions)
+1. [General principles](#general-principles)
+2. [Schema and object naming](#schema-and-object-naming)
+   - [Bronze and Silver](#bronze-and-silver)
+   - [Gold](#gold)
+3. [Column naming](#column-naming)
+   - [Surrogate keys](#surrogate-keys)
+   - [Technical columns](#technical-columns)
+4. [Pipeline files](#pipeline-files)
+
 ---
 
-## **General Principles**
+## General principles
 
-- **Naming Conventions**: Use snake_case, with lowercase letters and underscores (`_`) to separate words.
-- **Language**: Use English for all names.
-- **Avoid Reserved Words**: Do not use SQL reserved words as object names.
+- **Case:** `snake_case`, lowercase, words separated by `_`.
+- **Language:** English throughout.
+- **No reserved words** as object names.
+- **PostgreSQL folds unquoted identifiers to lowercase**, so an object created as
+  `CRM_CUST_INFO` is reachable as `crm_cust_info`. Names are written lowercase so
+  scripts, the API, and the dashboard all agree without quoting.
 
-## **Table Naming Conventions**
+---
 
-### **Bronze Rules**
-- All names must start with the source system name, and table names must match their original names without renaming.
-- **`<sourcesystem>_<entity>`**  
-  - `<sourcesystem>`: Name of the source system (e.g., `crm`, `erp`).  
-  - `<entity>`: Exact table name from the source system.  
-  - Example: `crm_customer_info` → Customer information from the CRM system.
+## Schema and object naming
 
-### **Silver Rules**
-- All names must start with the source system name, and table names must match their original names without renaming.
-- **`<sourcesystem>_<entity>`**  
-  - `<sourcesystem>`: Name of the source system (e.g., `crm`, `erp`).  
-  - `<entity>`: Exact table name from the source system.  
-  - Example: `crm_customer_info` → Customer information from the CRM system.
+Three schemas, named after the medallion layers: `bronze`, `silver`, `gold`.
 
-### **Gold Rules**
-- All names must use meaningful, business-aligned names for tables, starting with the category prefix.
-- **`<category>_<entity>`**  
-  - `<category>`: Describes the role of the table, such as `dim` (dimension) or `fact` (fact table).  
-  - `<entity>`: Descriptive name of the table, aligned with the business domain (e.g., `customers`, `products`, `sales`).  
-  - Examples:
-    - `dim_customers` → Dimension table for customer data.  
-    - `fact_sales` → Fact table containing sales transactions.  
+### Bronze and Silver
 
-#### **Glossary of Category Patterns**
+Both layers keep the source table's own name, prefixed by its source system:
 
-| Pattern     | Meaning                           | Example(s)                              |
-|-------------|-----------------------------------|-----------------------------------------|
-| `dim_`      | Dimension table                  | `dim_customer`, `dim_product`           |
-| `fact_`     | Fact table                       | `fact_sales`                            |
-| `report_`   | Report table                     | `report_customers`, `report_sales_monthly`   |
+```
+<source_system>_<entity>
+```
 
-## **Column Naming Conventions**
+- `<source_system>` — `crm` or `erp`, taken from the extract folder name.
+- `<entity>` — the source table name, **not renamed**, only lowercased.
 
-### **Surrogate Keys**  
-- All primary keys in dimension tables must use the suffix `_key`.
-- **`<table_name>_key`**  
-  - `<table_name>`: Refers to the name of the table or entity the key belongs to.  
-  - `_key`: A suffix indicating that this column is a surrogate key.  
-  - Example: `customer_key` → Surrogate key in the `dim_customers` table.
-  
-### **Technical Columns**
-- All technical columns must start with the prefix `dwh_`, followed by a descriptive name indicating the column's purpose.
-- **`dwh_<column_name>`**  
-  - `dwh`: Prefix exclusively for system-generated metadata.  
-  - `<column_name>`: Descriptive name indicating the column's purpose.  
-  - Example: `dwh_load_date` → System-generated column used to store the date when the record was loaded.
- 
-## **Stored Procedure**
+| Layer | Table |
+|---|---|
+| `bronze` | `crm_cust_info`, `crm_prd_info`, `crm_sales_details`, `erp_cust_az12`, `erp_loc_a101`, `erp_px_cat_g1v2` |
+| `silver` | same six names, one-for-one |
 
-- All stored procedures used for loading data must follow the naming pattern:
-- **`load_<layer>`**.
-  
-  - `<layer>`: Represents the layer being loaded, such as `bronze`, `silver`, or `gold`.
-  - Example: 
-    - `load_bronze` → Stored procedure for loading data into the Bronze layer.
-    - `load_silver` → Stored procedure for loading data into the Silver layer.
+Bronze and Silver use **identical names** for a deliberate reason: the layer is
+selected by schema, so `bronze.crm_cust_info` and `silver.crm_cust_info` can be
+compared directly in a join without either side needing an alias.
+
+Source names are abbreviated as the source abbreviates them — `cust_az12`, not
+`customer_az12`, and `crm_cust_info`, not `crm_customer_info`. Renaming them
+would break the correspondence back to the extract files in `datasets/`.
+
+### Gold
+
+Gold uses business-facing names with a category prefix:
+
+```
+<category>_<entity>
+```
+
+| Pattern | Meaning | Actual objects |
+|---|---|---|
+| `dim_` | Dimension table | `dim_customers`, `dim_products` |
+| `fact_` | Fact table | `fact_sales` |
+
+Entity names are **plural**, matching the table they describe: `dim_customers`,
+not `dim_customer`.
+
+All three gold objects are **views** over `silver`, not tables. They carry no
+storage, so a gold change is a `CREATE OR REPLACE VIEW` and costs nothing to
+roll back.
+
+---
+
+## Column naming
+
+### Surrogate keys
+
+Dimension surrogate keys end in `_key`:
+
+- `dim_customers.customer_key`
+- `dim_products.product_key`
+
+The same name is reused for the foreign key in the fact table, so
+`fact_sales.customer_key` reads unambiguously as a reference to
+`dim_customers.customer_key`.
+
+Both are `bigint`, generated by a sequence rather than derived from the source.
+
+### Technical columns
+
+System-generated columns are prefixed `dwh_`:
+
+- `dwh_` — reserved for metadata the pipeline adds, never for source data.
+
+In practice there is exactly one: **`dwh_create_date timestamp DEFAULT
+LOCALTIMESTAMP`** on all six Silver tables. It records *when the row was loaded*,
+not when the source created it.
+
+> Naming gotcha: the column is called `dwh_create_date` but behaves as a load
+> timestamp. The source's own creation date is a separate business column —
+> `silver.crm_cust_info.cst_create_date`. If you need "when did we load this",
+> use `dwh_create_date`; if you need "when did the source create this", use the
+> `cst_`/`prd_` prefixed column. Do not infer one from the other.
+
+Bronze and Gold carry no `dwh_` columns. Bronze is a verbatim landing zone; Gold
+exposes only business attributes.
+
+---
+
+## Pipeline files
+
+**This project has no stored procedures.** Loading is a fixed sequence of plain
+SQL statements run by `psql`, because there is nothing to gain from a procedure
+when the transformation is a straight-line sequence of steps in one file.
+
+The only routine in the database is `public.assert_true(condition, message)`,
+which raises an exception so a failed quality gate aborts the script instead of
+being skipped.
+
+Pipeline files follow `scripts/<layer>/<verb>_<layer>.sql`:
+
+| Path | Purpose |
+|---|---|
+| `scripts/init_database.sql` | Drops and recreates the three schemas. Destructive. |
+| `scripts/bronze/ddl_bronze.sql` | Creates the Bronze tables. |
+| `scripts/bronze/load_bronze.sql` | Loads the raw CSVs. |
+| `scripts/silver/ddl_silver.sql` | Creates the Silver tables. |
+| `scripts/silver/load_silver.sql` | Cleans and transforms Bronze → Silver. |
+| `scripts/gold/ddl_gold.sql` | Creates the Gold views. |
+| `tests/quality_checks_silver.sql` | Quality gates on Silver. |
+| `tests/quality_checks_gold.sql` | Quality gates on Gold. |
+| `tests/parity_fingerprint.sql` | Engine-neutral summary, diffable across databases. |
+
+The loaders use psql's `\copy` so the file is streamed from the machine running
+the script. This is what lets the same scripts target a remote host such as Neon
+without the server needing access to your local files.

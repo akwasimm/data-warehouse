@@ -1,144 +1,306 @@
-# 📊 My Data Warehouse Project
+# 📊 Wasim's Data Warehouse
 
-Hey! 👋 This is my data warehouse and analytics project. I built it to learn how to design databases, clean data, and create reports. It's basically a portfolio piece to show I can do real data work!
+A PostgreSQL data warehouse on the **medallion architecture** (Bronze → Silver →
+Gold), with a read-only FastAPI service and a live dashboard on top of it.
 
----
-
-## 🎯 What I Built
-
-I created a complete data pipeline:
-- **Took raw data** from six CSV files across two source systems (ERP and CRM)
-- **Cleaned it up** - fixed errors, removed duplicates, standardized formats
-- **Modeled it** into a star schema (fact + dimension tables)
-- **Made reports** with SQL queries to analyze sales, customers, and products
+Everything the dashboard shows is read live from the warehouse on each page
+load — there are no cached screenshots or hardcoded numbers.
 
 ---
 
-## 🏗️ How It's Organized
+## 🎯 What this contains
 
-I used the **Medallion Architecture** (Bronze → Silver → Gold):
+**The warehouse**
+- Ingests six CSV extracts from two source systems (CRM and ERP)
+- Cleans them: null handling, deduplication, standardised types
+- Models them into a star schema (one fact table, two dimensions)
+- Verifies itself with 17 quality gates that abort the run on failure
+
+**The API** — `backend/`
+- FastAPI, public, no authentication, read-only queries only
+- Discovers every table from the database catalog, so it works against whatever
+  the warehouse happens to contain rather than a hardcoded list
+
+**The dashboard** — `frontend/`
+- React + Recharts, single page, no router
+- Bronze/Silver/Gold sections, KPI cards, live previews, trend and distribution charts
+- Glassmorphism design system, responsive down to 390px, keyboard and
+  screen-reader accessible
+
+---
+
+## 🏗️ The medallion architecture
 
 ```
-🥉 Bronze Layer → Raw data, just as it came from CSV files
-🥈 Silver Layer → Cleaned and standardized data  
-🥇 Gold Layer → Final tables ready for analysis/reporting
+🥉 Bronze  →  Raw data, exactly as it came out of the CSV extracts
+🥈 Silver  →  Cleaned, typed, deduplicated
+🥇 Gold    →  Views shaped for analysis: dim_customers, dim_products, fact_sales
 ```
 
-Think of it like refining gold - you start with raw material and make it better at each step!
+Each layer only reads from the one before it, so any figure in the dashboard can
+be traced back to the rows it came from.
+
+Current contents:
+
+| Layer | Objects | Rows |
+|---|---|---|
+| Bronze | 6 tables | 116,294 |
+| Silver | 6 tables | 116,284 |
+| Gold | 3 views | 79,177 |
 
 ---
 
-## 📁 Project Structure
+## 📁 Project structure
 
 ```
 data-warehouse/
 │
-├── datasets/                       # My raw CSV files (ERP + CRM data)
-│   ├── source_crm/                 #   CRM extracts
-│   │   ├── cust_info.csv
-│   │   ├── prd_info.csv
-│   │   └── sales_details.csv
-│   └── source_erp/                 #   ERP extracts
-│       ├── CUST_AZ12.csv
-│       ├── LOC_A101.csv
-│       └── PX_CAT_G1V2.csv
+├── datasets/                       # Raw source CSVs — the input, never modified
+│   ├── source_crm/                 #   cust_info, prd_info, sales_details
+│   └── source_erp/                 #   CUST_AZ12, LOC_A101, PX_CAT_G1V2
 │
-├── docs/                           # Documentation and diagrams
-│   ├── data_architecture.png       # How everything connects
-│   ├── data_catalog.md             # Table and column reference
-│   ├── data_flow.png               # Data movement diagram
-│   ├── data_integration.png        # Source system integration
-│   ├── data_layers.pdf             # Bronze/Silver/Gold layers
-│   ├── data_model.png              # Star schema design
-│   ├── ETL.png                     # ETL process diagram
-│   ├── naming_conventions.md       # Naming rules I followed
-│   └── Project_Notes_Sketches.pdf  # My working notes
+├── scripts/                        # The pipeline, in order
+│   ├── init_database.sql           #   Drops and recreates all three schemas (destructive)
+│   ├── run_all.sh                  #   Runs everything below, then both quality gates
+│   ├── bronze/                     #   ddl_bronze.sql, load_bronze.sql
+│   ├── silver/                     #   ddl_silver.sql, load_silver.sql
+│   └── gold/                       #   ddl_gold.sql — creates the views
 │
-├── scripts/                        # All my SQL code
-│   ├── init_database.sql           # Create the DataWarehouse database
-│   ├── bronze/                     # Bronze layer
-│   │   ├── ddl_bronze.sql          #   Create bronze tables
-│   │   └── proc_load_bronze.sql    #   Load raw CSVs into bronze
-│   ├── silver/                     # Silver layer
-│   │   ├── ddl_silver.sql          #   Create silver tables
-│   │   └── proc_load_silver.sql    #   Clean and transform bronze -> silver
-│   └── gold/                       # Gold layer
-│       └── ddl_gold.sql            #   Create gold views (star schema)
+├── tests/                          # Data quality gates
+│   ├── quality_checks_silver.sql   #   13 gates on Silver
+│   ├── quality_checks_gold.sql     #   4 gates on Gold
+│   └── parity_fingerprint.sql      #   Engine-neutral summary, diffable across databases
 │
-├── tests/                          # Data quality checks
-│   ├── quality_checks_silver.sql
-│   └── quality_checks_gold.sql
+├── backend/                        # FastAPI service
+│   ├── main.py                     #   App, CORS, /api/health, /api/overview
+│   ├── database.py                 #   Connection handling, catalog discovery, caching
+│   ├── routers/                    #   bronze.py, silver.py, gold.py
+│   ├── test_api.py                 #   Live integration tests
+│   ├── Dockerfile
+│   └── .env.example                #   Connection settings
 │
-└── README.md                       # This file! 😊
+├── frontend/                       # React dashboard
+│   ├── src/sections/               #   Hero, Architecture, Bronze, Silver, Gold, Footer
+│   ├── src/components/             #   Glass cards, tables, charts, states
+│   ├── src/index.css               #   The design system — tokens, no ad-hoc styling
+│   ├── Dockerfile                  #   Multi-stage: Vite build → nginx
+│   └── nginx.conf                  #   Serves the SPA, proxies /api to the backend
+│
+├── docs/
+│   ├── data_catalog.md             # Gold layer columns, types, and grains
+│   └── naming_conventions.md       # The naming rules this warehouse follows
+│
+├── docker-compose.yml              # Dashboard stack (backend + frontend)
+│
+└── README.md
 ```
 
----
-
-## 🛠️ Tools I Used
-
-Everything is free! 🎉
-
-| Tool | What I Used It For |
-|------|-------------------|
-| SQL Server Express | Database server |
-| SSMS (SQL Server Management Studio) | Write and run SQL queries |
-| Draw.io | Make diagrams and architecture |
-| Notion | Plan and document my work |
-| GitHub | Save my code and track changes |
+> The database is **not** part of `docker-compose.yml`. It runs as its own
+> container so the warehouse survives a dashboard rebuild. See below.
 
 ---
 
-## 📊 What I Learned
+## 🚀 Running it
 
-- ✅ How to design a data warehouse from scratch
-- ✅ ETL process (Extract, Transform, Load)
-- ✅ Data cleaning techniques (nulls, duplicates, formatting)
-- ✅ Star schema modeling (facts & dimensions)
-- ✅ Writing SQL for business analytics
-- ✅ Data documentation best practices
+### 1. The database
+
+The warehouse lives in a standalone container on port **5433**. Create it once:
+
+```bash
+docker run -d --name dwh-pg -p 5433:5432 \
+  -e POSTGRES_PASSWORD=DwhDev2026 \
+  -e POSTGRES_DB=datawarehouse \
+  postgres:17-alpine
+```
+
+### 2. Load the warehouse
+
+From the repository root — the bronze loader resolves CSV paths relative to the
+current directory, so it must not be run from inside `scripts/`.
+
+```bash
+PGPORT=5433 sh scripts/run_all.sh
+```
+
+This runs, in order:
+
+1. `scripts/init_database.sql` — drops and recreates the schemas (**destructive**)
+2. Bronze DDL → Bronze load
+3. Silver DDL → Silver load
+4. Gold views
+5. `tests/quality_checks_silver.sql`, then `tests/quality_checks_gold.sql`
+
+The quality gates exit non-zero on any failure, so the whole script is safe to
+wire into CI as-is.
+
+**Against a hosted database** the same command works unchanged, because the
+loaders use psql's `\copy` — which streams the file from your machine — rather
+than server-side `COPY`, which cannot see your local files:
+
+```bash
+PGHOST=<your-host> PGPORT=5432 PGUSER=<user> PGPASSWORD=<pw> PGDATABASE=<db> \
+  sh scripts/run_all.sh
+```
+
+Use the **direct** connection string for this, not the pooled one.
+
+### 3. The dashboard
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:8080 |
+| API | http://localhost:8000 |
+| Interactive API docs | http://localhost:8000/docs |
+
+The frontend is built with `VITE_API_BASE=/api` and served by nginx, which
+proxies `/api/` to the backend. The browser therefore only ever talks to one
+origin — there is no CORS in the Docker setup.
+
+> ⚠️ **Do not run `docker compose down --remove-orphans`.** Compose sees `dwh-pg`
+> as an orphan because it is not defined in the compose file, and that flag would
+> delete your database. Plain `docker compose down` or `stop` is safe.
 
 ---
 
-## 📈 Sample Insights I Can Get
+## 🔌 API
 
-After building this, I can answer questions like:
-- Which products sell the most?
-- Who are my top customers?
-- How are sales trending over time?
-- Which regions perform best?
+All routes are `GET` and read-only.
 
-(The `gold` schema exposes `dim_customers`, `dim_products` and `fact_sales` as views, ready to query!)
+| Route | Returns |
+|---|---|
+| `/api/health` | Database connectivity and dialect |
+| `/api/overview` | Row counts and metadata for all three layers |
+| `/api/bronze/tables` | Discovered Bronze tables with row counts |
+| `/api/bronze/preview/{table}` | First N rows of a Bronze table |
+| `/api/bronze/stats` | Bronze totals |
+| `/api/silver/tables` | Discovered Silver tables |
+| `/api/silver/schema/{table}` | Column definitions for one table |
+| `/api/silver/preview/{table}` | First N rows of a Silver table |
+| `/api/silver/stats` | Silver totals, including duplicates removed |
+| `/api/silver/comparison` | Bronze vs Silver row counts per table |
+| `/api/gold/kpis` | Headline metrics |
+| `/api/gold/trend` | Time series over a chosen metric |
+| `/api/gold/distribution` | Value distribution by a chosen dimension |
+| `/api/gold/top-performers` | Ranked dimension members with share of total |
+| `/api/gold/tables` | Gold objects |
+| `/api/gold/preview/{table}` | First N rows of a Gold object |
+| `/api/gold/stats` | Gold totals |
+
+Table and column names arrive as path parameters, so they are validated against
+the catalog before being interpolated into SQL — the API is read-only and
+identifiers are allowlisted rather than escaped.
+
+### Tests
+
+```bash
+cd backend && python -m pytest test_api.py -q
+```
+
+The suite runs against the live database. It skips the empty-warehouse cases when
+no data is loaded, and asserts on arithmetic invariants (Bronze rows minus
+removed duplicates equals Silver rows) rather than hardcoded totals, so it stays
+valid as the data changes.
+
+---
+
+## 🔄 Conversion notes: SQL Server → PostgreSQL
+
+The warehouse was originally written for SQL Server and ported to PostgreSQL so it
+could run on Neon. `tests/parity_fingerprint.sql` is written in the SQL subset both
+engines accept unchanged, so its output can be diffed between the two databases.
+Running it against both, the entire warehouse matches on:
+
+- every row count and key cardinality
+- all date ranges
+- the sales money reconciliation (`SUM(sales_amount) = 29,356,250`)
+- every normalised value domain
+- the product SCD windows, including the count of currently-active products
+- the full `gold.fact_sales` aggregate, including NULL surrogate keys
+
+**The only difference is one row PostgreSQL has and SQL Server did not.** The
+final line of `datasets/source_erp/CUST_AZ12.csv` is `AW00029483,1965-06-06,` —
+no trailing newline, empty `GEN` field. `BULK INSERT` silently discarded it;
+`\copy` loads it. So the conversion recovered a customer the old pipeline had been
+dropping on every run. A further row in `cust_info.csv` was dropped the same way,
+but it happened to be a duplicate, so it never changed the silver output.
+
+A few things that did *not* translate directly, and are commented in the SQL:
+
+| SQL Server | PostgreSQL | Why it matters |
+|---|---|---|
+| `LEN(int_col)` | `length(int_col::text)` | There is no `length(integer)` overload, so it errors otherwise |
+| `DATETIME - 1` | `DATETIME - INTERVAL '1 day'` | `date - integer` works, but `timestamp - integer` is not a defined operator |
+| implicit `numeric`→`integer` on INSERT | explicit `::integer` | PostgreSQL refuses the implicit narrowing, so the cast is now visible |
+| `RAISERROR` in an `IF` block | `public.assert_true()` function | There is no plain-SQL equivalent; the function raises instead |
+| `TRY/CATCH` + `THROW` | `\set ON_ERROR_STOP on` | psql aborts and exits non-zero on the first error |
+| `ROWTERMINATOR = '0x0D0A'` | not needed | PostgreSQL's CSV reader handles CRLF natively and does not leak the CR into the last field |
+| `NVARCHAR` / `DATETIME2` / `INT` | `varchar` / `timestamp` / `integer` | Straight type mapping |
+
+The loaders are deliberately plain `INSERT` statements rather than stored
+procedures, because the transformations are a fixed sequence of steps and psql
+runs a file top to bottom. There is nothing to gain from a procedure here.
 
 ---
 
-## 🚀 How to Run This
+## 🧰 Tools
 
-1. Install [SQL Server Express]
-2. Install [SSMS]
-3. Open the project in SSMS
-4. Run the scripts in this order:
-   1. `scripts/init_database.sql` — drops and recreates the `DataWarehouse` database, so it is destructive
-   2. `scripts/bronze/ddl_bronze.sql`, then `scripts/bronze/proc_load_bronze.sql`, then `EXEC bronze.load_bronze;`
-   3. `scripts/silver/ddl_silver.sql`, then `scripts/silver/proc_load_silver.sql`, then `EXEC silver.load_silver;`
-   4. `scripts/gold/ddl_gold.sql`
-5. Run `tests/quality_checks_silver.sql` and then `tests/quality_checks_gold.sql` to verify data quality
-
-> **Note:** the loaders read the CSVs from `/var/opt/mssql/datasets`, the path inside the SQL Server container I used for development. If you run SQL Server somewhere else, point those paths in `proc_load_bronze.sql` at your own copy of `datasets/`.
+| Tool | Used for |
+|---|---|
+| PostgreSQL 17 | The database engine this project targets |
+| Docker + Docker Compose | Running PostgreSQL and deploying the dashboard |
+| psql | Writing and running the pipeline |
+| FastAPI + psycopg 3 | The read-only API |
+| React + Recharts | The dashboard |
+| nginx | Serving the built SPA and proxying the API |
+| Neon | Hosted PostgreSQL, so the warehouse can run in the cloud |
 
 ---
 
-## 🤝 Connect With Me
+## 📈 What the dashboard can answer
 
-I'm still learning and would love feedback!
+- How many rows sit in each layer, and how many the cleaning removed
+- What a row actually looks like in Bronze versus Silver
+- Which products, customers, and categories drive revenue
+- How sales trend over time
+- Which region or product line performs best
 
-- 📧 Email: [akhterwasim797@gmail.com](mailto:akhterwasim797@gmail.com)
-- 💼 LinkedIn: [https://linkedin.com/in/akhterwasim](https://linkedin.com/in/akhterwasim)
+---
 
+## 🧠 Notes for the reader
+
+Two things that will save you time if you change this:
+
+- **`docs/data_catalog.md` documents the real column types.** The Gold layer is
+  built from views over Silver, so all of its columns are nullable — a missing
+  attribute is `NULL`, not a dropped row.
+- **Never add a `-webkit-backdrop-filter` line next to `backdrop-filter` in
+  `frontend/src/index.css`.** The CSS minifier collapses the two into the
+  prefixed form, Chrome then discards it as unsupported, and the glass effect
+  disappears with no error anywhere in the build or console.
 
 ---
 
-## 📄 License
+## 📄 Credits and licence
 
-This project is open source - feel free to use it for learning!
+This project was inspired by an earlier SQL Server data-warehouse portfolio
+project by **Baraa Khatib Salkini**, which provided the original medallion
+structure, the SQL scripts, and the sample CRM/ERP datasets.
+
+The PostgreSQL conversion, the refreshed source data, the FastAPI service, and
+the entire dashboard are original work for this repository.
+
+> **No licence file is currently included.** Under default copyright that means
+> all rights reserved — you hold the rights, and nobody else may legally reuse
+> or redistribute this. Add a `LICENSE` file (MIT, Apache-2.0, or whatever you
+> prefer) to grant others permission.
 
 ---
+
+## 📬 Contact
+
+- 📧 [akhterwasim797@gmail.com](mailto:akhterwasim797@gmail.com)
+- 💼 [linkedin.com/in/akhterwasim](https://linkedin.com/in/akhterwasim)
