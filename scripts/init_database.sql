@@ -1,42 +1,31 @@
 /*
 =============================================================
-Create Database and Schemas
+Create Schemas (PostgreSQL)
 =============================================================
 Script Purpose:
-    This script creates a new database named 'DataWarehouse' after checking if it already exists. 
-    If the database exists, it is dropped and recreated. Additionally, the script sets up three schemas 
-    within the database: 'bronze', 'silver', and 'gold'.
-	
+    This script (re)creates the three medallion schemas:
+    'bronze', 'silver', and 'gold'.
+
+    PostgreSQL has no portable 'DROP DATABASE' from inside a
+    connection to that database, so this script drops and recreates
+    the schemas instead. That is the correct unit of reset for a
+    hosted database such as Neon, where the database itself is
+    provisioned for you and must not be dropped.
+
+Usage:
+    psql -v ON_ERROR_STOP=1 -f scripts/init_database.sql
+
 WARNING:
-    Running this script will drop the entire 'DataWarehouse' database if it exists. 
-    All data in the database will be permanently deleted. Proceed with caution 
+    Running this script will drop the entire 'bronze', 'silver' and
+    'gold' schemas, including all data they contain. All data in
+    those schemas will be permanently deleted. Proceed with caution
     and ensure you have proper backups before running this script.
 */
 
-USE master;
-GO
+DROP SCHEMA IF EXISTS bronze CASCADE;
+DROP SCHEMA IF EXISTS silver CASCADE;
+DROP SCHEMA IF EXISTS gold  CASCADE;
 
--- Drop and recreate the 'DataWarehouse' database
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = 'DataWarehouse')
-BEGIN
-    ALTER DATABASE DataWarehouse SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE DataWarehouse;
-END;
-GO
-
--- Create the 'DataWarehouse' database
-CREATE DATABASE DataWarehouse;
-GO
-
-USE DataWarehouse;
-GO
-
--- Create Schemas
 CREATE SCHEMA bronze;
-GO
-
 CREATE SCHEMA silver;
-GO
-
 CREATE SCHEMA gold;
-GO
