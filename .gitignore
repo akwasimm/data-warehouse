@@ -26,3 +26,14 @@ Thumbs.db
 
 # Ignore graphify generated knowledge graph
 graphify-out/
+
+# Ignore Python build/venv artefacts (8 stale .pyc files were committed before
+# these were listed; .dockerignore already had the equivalent rules)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Ignore Node build output
+node_modules/
+dist/
