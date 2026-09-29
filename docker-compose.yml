@@ -1,0 +1,39 @@
+# Wasim's Data Warehouse dashboard.
+#
+#   docker compose up --build      -> dashboard on http://localhost:8080
+#
+# The warehouse itself is NOT part of this file. It already runs as the
+# standalone `dwh-pg` container on host port 5433, so the backend reaches it via
+# host.docker.internal. This compose never creates, migrates, or seeds it.
+
+services:
+  backend:
+    build: ./backend
+    container_name: wasim-dwh-backend
+    environment:
+      DWH_DIALECT: postgres
+      DWH_HOST: host.docker.internal
+      DWH_PORT: "5433"
+      DWH_DATABASE: datawarehouse
+      DWH_USER: postgres
+      DWH_PASSWORD: DwhDev2026
+    ports:
+      # Published so you can hit the API and its /docs directly.
+      - "8000:8000"
+    extra_hosts:
+      # Required for host.docker.internal on Linux; a no-op on Docker Desktop.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: /api
+    container_name: wasim-dwh-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
